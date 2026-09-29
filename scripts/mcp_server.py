@@ -17,7 +17,7 @@ def handle(request):
         return
     if method == "initialize":
         result = {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}},
-                  "serverInfo": {"name": "codex-pulse", "version": "0.1.0"}}
+                  "serverInfo": {"name": "codex-pulse", "version": "0.1.1"}}
     elif method == "ping":
         result = {}
     elif method == "tools/list":
