@@ -2,6 +2,7 @@ import json
 import tempfile
 import sqlite3
 import unittest
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -37,7 +38,7 @@ class CollectorTests(unittest.TestCase):
                 with continued.open("a") as stream:
                     stream.write(event(now + timedelta(seconds=2), "task_complete"))
                 self.assertEqual(collector.snapshot(thread_id)["current_session"]["task_status"], "idle")
-                with sqlite3.connect(collector.CACHE) as db:
+                with closing(sqlite3.connect(collector.CACHE)) as db:
                     ids = [row[0] for row in db.execute("SELECT session_id FROM session_state")]
                 self.assertEqual(ids, [thread_id])
             finally:
@@ -100,9 +101,10 @@ class CollectorTests(unittest.TestCase):
                 self.assertEqual(changed["effort"], "high")
                 self.assertEqual(changed["task_status"], "idle")
                 # Persisted picker settings take effect before any new usage event.
-                with sqlite3.connect(root.parent / "state_5.sqlite") as state:
+                with closing(sqlite3.connect(root.parent / "state_5.sqlite")) as state:
                     state.execute("CREATE TABLE threads(id,title,model,reasoning_effort,cwd,rollout_path,archived,updated_at)")
                     state.execute("INSERT INTO threads VALUES(?,?,?,?,?,?,?,?)", (session_id, "Selected chat", "gpt-picker", "low", "/tmp/project", str(path), 0, 1))
+                    state.commit()
                 self.assertEqual(collector.snapshot(session_id)["current_session"]["model"], "gpt-picker")
                 # Another session's later event cannot override a locked selection.
                 other_id = "00000000-0000-0000-0000-000000000002"

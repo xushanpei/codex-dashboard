@@ -7,6 +7,7 @@ import os
 import re
 import sqlite3
 import sys
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from account_status import read_account
@@ -290,7 +291,7 @@ def read_catalog(selected_id=None):
     if not path.exists():
         return []
     try:
-        with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=1) as source:
+        with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=1)) as source:
             source.row_factory = sqlite3.Row
             columns = {row[1] for row in source.execute("PRAGMA table_info(threads)")}
             fields = [name for name in ("id", "name", "title", "model", "reasoning_effort", "cwd", "rollout_path") if name in columns]
@@ -315,7 +316,7 @@ def snapshot(selected_id=None):
     week = today - timedelta(days=today.weekday())
     month = today.replace(day=1)
     CACHE.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(CACHE, timeout=10) as db:
+    with closing(sqlite3.connect(CACHE, timeout=10)) as db:
         init(db)
         desktop_id = visible_desktop_session(db, now) if selected_id is None else None
         target_id = selected_id or desktop_id
