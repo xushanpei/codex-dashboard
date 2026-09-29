@@ -1,0 +1,20 @@
+{
+  "name": "codex-pulse",
+  "interface": {
+    "displayName": "Codex Pulse"
+  },
+  "plugins": [
+    {
+      "name": "codex-pulse",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
