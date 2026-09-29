@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-pulse",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Live local Codex status, quota, and token usage for macOS and Windows.",
   "author": {
     "name": "xushanpei",
@@ -20,7 +20,7 @@
         "developerName": "xushanpei",
         "category": "Productivity",
         "capabilities": ["Read"],
-        "logo": "./assets/codex-mark.png",
+        "logo": "./assets/app-icon.png",
         "defaultPrompt": "Show my Codex Pulse status."
       }
     }

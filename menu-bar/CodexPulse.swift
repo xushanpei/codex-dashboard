@@ -674,7 +674,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
             ]))
         } else {
             text.append(NSAttributedString(string: "额度未知", attributes: [
-                .font: font, .foregroundColor: NSColor.secondaryLabelColor
+                .font: font, .foregroundColor: NSColor.labelColor
             ]))
         }
         let icon = logo.image(for: iconState)

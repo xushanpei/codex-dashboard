@@ -1,6 +1,6 @@
 {
   "name": "codex-pulse",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Live Codex status and token usage in the macOS menu bar or Windows tray.",
   "author": {
     "name": "xushanpei"
@@ -12,7 +12,7 @@
     "developerName": "xushanpei",
     "category": "Productivity",
     "capabilities": [],
-    "logo": "./assets/codex-mark.png",
+    "logo": "./assets/app-icon.png",
     "defaultPrompt": "Show my Codex Pulse status."
   },
   "mcpServers": "./.mcp.json",
