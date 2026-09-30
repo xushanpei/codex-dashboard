@@ -500,10 +500,12 @@ class Dashboard:
             self.on_motion(event)
 
     def show_quota_details(self):
+        if self.root.state() == "withdrawn":
+            self.show()
         detail = tk.Toplevel(self.root)
         detail.title("Codex Pulse · 完整额度")
         detail.configure(bg=BG)
-        detail.geometry("430x420")
+        detail.geometry(f"430x420+{self.root.winfo_x()}+{max(0, self.root.winfo_y() - 430)}")
         detail.transient(self.root)
         tk.Label(detail, text="完整额度与重置卡", bg=BG, fg=WHITE,
                  font=("Segoe UI", 16, "bold")).pack(anchor="w", padx=20, pady=(18, 8))
