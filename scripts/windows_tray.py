@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
@@ -57,11 +58,66 @@ def status_visual(session):
 
 
 def quota_remaining(account):
+    windows = quota_windows(account)
+    return windows[0][1] if windows else None
+
+
+def quota_label(minutes):
+    if not minutes:
+        return "额度窗口"
+    if minutes % 10080 == 0:
+        return f"{minutes // 10080} 周额度"
+    if minutes % 1440 == 0:
+        return f"{minutes // 1440} 天额度"
+    if minutes % 60 == 0:
+        return f"{minutes // 60} 小时额度"
+    return f"{minutes} 分钟额度"
+
+
+def quota_windows(account):
+    if not account or account.get("stale") or account.get("auth_type") in ("apiKey", "amazonBedrock"):
+        return []
+    buckets = account.get("rate_limits_by_limit_id") or {}
+    if not buckets:
+        buckets = {"codex": account.get("rate_limits") or {}}
+    windows = []
+    for limit_id, bucket in buckets.items():
+        for name in ("primary", "secondary"):
+            value = bucket.get(name) or {}
+            if not value:
+                continue
+            minutes = value.get("windowDurationMins") or value.get("windowMinutes")
+            used = value.get("usedPercent")
+            remaining = max(0, min(100, 100 - float(used))) if used is not None else None
+            prefix = "" if limit_id == "codex" else f"{bucket.get('limitName') or limit_id} · "
+            windows.append((prefix + quota_label(minutes), remaining, value.get("resetsAt"), minutes or 0))
+    return [(label, remaining, reset) for label, remaining, reset, _ in sorted(windows, key=lambda row: row[3])]
+
+
+def local_time(epoch):
+    return datetime.fromtimestamp(epoch).strftime("%m-%d %H:%M") if epoch else "未提供"
+
+
+def quota_summary(account):
     if not account or account.get("stale"):
-        return None
-    primary = ((account.get("rate_limits") or {}).get("primary") or {})
-    used = primary.get("usedPercent")
-    return max(0, min(100, 100 - float(used))) if used is not None else None
+        return "账号额度尚未读取，请稍后刷新。"
+    if account.get("auth_type") == "apiKey":
+        return "API Key 接入\n按 OpenAI API 用量计费；ChatGPT 套餐额度不适用。\nAPI 用量：https://platform.openai.com/usage"
+    if account.get("auth_type") == "amazonBedrock":
+        return "Amazon Bedrock 接入\n当前登录方式不提供 ChatGPT 套餐额度。"
+    lines = []
+    for label, remaining, reset in quota_windows(account):
+        amount = f"{remaining:.0f}%" if remaining is not None else "未提供"
+        lines.append(f"{label}  剩余 {amount}\n  重置：{local_time(reset)}")
+    if not lines:
+        lines.append("当前账号未返回额度窗口。")
+    credits = account.get("rate_limit_reset_credits") or {}
+    count = credits.get("availableCount")
+    lines.append(f"额度重置卡：可用 {count} 张" if count is not None else "额度重置卡：未返回")
+    for index, credit in enumerate(credits.get("credits") or [], 1):
+        lines.append(f"  {credit.get('title') or f'重置卡 {index}'} · 有效期 {local_time(credit.get('expiresAt'))}")
+    lines.append("重置卡只读展示，不会自动消耗。")
+    return "\n\n".join(lines)
 
 
 @lru_cache(maxsize=4)
@@ -271,6 +327,8 @@ class Dashboard:
                 kind, data = self.events.get_nowait()
                 if kind == "show":
                     self.show()
+                elif kind == "quota":
+                    self.show_quota_details()
                 elif kind == "refresh":
                     self.refresh()
                 elif kind == "check_update":
@@ -313,7 +371,8 @@ class Dashboard:
         state = "error" if self.error else session.get("task_status") or "idle"
         self.icon.icon = icon_image(state)
         remaining = quota_remaining((self.snapshot or {}).get("account"))
-        quota = "额度待更新" if remaining is None else f"额度剩余 {remaining:.0f}%"
+        quota = ("API Key 接入" if ((self.snapshot or {}).get("account") or {}).get("auth_type") == "apiKey"
+                 else ("额度待更新" if remaining is None else f"额度剩余 {remaining:.0f}%"))
         self.icon.title = f"Codex Pulse · {status_visual(session)[0]} · {quota}"
         if self.update_info:
             self.icon.title += f" · 新版 {self.update_info['latest_version']}"
@@ -341,12 +400,12 @@ class Dashboard:
             self.label(303, 32, f"更新至 {self.update_info['latest_version']}", 10, CYAN, "bold", "center")
         self.label(404, 26, "×", 17, MUTED, anchor="ne")
         self.card(62, 129)
-        email = account.get("email") or "Codex 账号信息加载中"
+        email = account.get("email") or ("API Key 接入" if account.get("auth_type") == "apiKey" else "Codex 账号信息加载中")
         self.rounded(31, 76, 72, 116, 20, "#3d3562", "#3d3562")
         self.label(51, 96, email[:1].upper(), 18, VIOLET, "bold", "center")
         self.label(84, 76, email if len(email) < 32 else email[:28] + "…", 12, WHITE, "bold")
-        self.label(84, 99, "ChatGPT 登录" if account.get("auth_type") == "chatgpt" else "Codex 账号", 10, MUTED)
-        plan = (account.get("plan_type") or "—").upper()
+        self.label(84, 99, "ChatGPT 登录" if account.get("auth_type") == "chatgpt" else ("API 用量计费" if account.get("auth_type") == "apiKey" else "Codex 账号"), 10, MUTED)
+        plan = (account.get("plan_type") or ("API" if account.get("auth_type") == "apiKey" else "—")).upper()
         self.label(398, 100, plan, 10, CYAN, "bold", "e")
 
         # Current chat
@@ -384,16 +443,15 @@ class Dashboard:
         self.label(399, 428, f"窗口 {compact(window)}", 9, MUTED, anchor="ne")
 
         self.card(457, 534)
-        remaining = quota_remaining(account)
-        primary = ((account.get("rate_limits") or {}).get("primary") or {})
-        self.label(31, 469, "套餐额度剩余", 11, WHITE, "bold")
+        windows = quota_windows(account)
+        first = windows[0] if windows else None
+        remaining = first[1] if first else None
+        self.label(31, 469, first[0] if first else ("API Key 接入" if account.get("auth_type") == "apiKey" else "套餐额度"), 11, WHITE, "bold")
         self.label(398, 468, f"{remaining:.0f}%" if remaining is not None else "—", 17, VIOLET, "bold", "ne")
         self.meter(31, 496, 399, (remaining or 0) / 100, VIOLET)
-        mins = primary.get("windowDurationMins") or primary.get("minutes")
-        self.label(31, 511, "7 天窗口" if mins == 10080 else (f"窗口 {mins} 分钟" if mins else "账号额度暂不可用"), 9, MUTED)
-        secondary = ((account.get("rate_limits") or {}).get("secondary") or {}).get("usedPercent")
-        if secondary is not None and not account.get("stale"):
-            self.label(399, 511, f"第二窗口剩余 {max(0, 100 - float(secondary)):.0f}%", 9, MUTED, anchor="ne")
+        self.label(31, 511, f"重置 {local_time(first[2])}" if first else ("按 API 用量计费" if account.get("auth_type") == "apiKey" else "账号额度暂不可用"), 9, MUTED)
+        count = (account.get("rate_limit_reset_credits") or {}).get("availableCount")
+        self.label(399, 511, f"重置卡 {count} 张 · 查看全部 ›" if count is not None else "查看完整额度 ›", 9, CYAN, anchor="ne")
 
         # Trend with hover and toggle
         self.card(546, 654)
@@ -432,12 +490,34 @@ class Dashboard:
             self.install_update()
         elif event.y < 54 and event.x > 370:
             self.hide()
+        elif 457 <= event.y <= 534:
+            self.show_quota_details()
         elif 550 <= event.y <= 578 and event.x >= 300:
             self.trend_month = event.x >= 359
             self.hover_date = None
             self.render()
         elif event.y >= 589:
             self.on_motion(event)
+
+    def show_quota_details(self):
+        detail = tk.Toplevel(self.root)
+        detail.title("Codex Pulse · 完整额度")
+        detail.configure(bg=BG)
+        detail.geometry("430x420")
+        detail.transient(self.root)
+        tk.Label(detail, text="完整额度与重置卡", bg=BG, fg=WHITE,
+                 font=("Segoe UI", 16, "bold")).pack(anchor="w", padx=20, pady=(18, 8))
+        frame = tk.Frame(detail, bg=BG)
+        frame.pack(fill="both", expand=True, padx=20, pady=(0, 18))
+        scrollbar = tk.Scrollbar(frame)
+        scrollbar.pack(side="right", fill="y")
+        body = tk.Text(frame, wrap="word", bg=CARD, fg=WHITE, relief="flat", bd=14,
+                       font=("Segoe UI", 11), yscrollcommand=scrollbar.set)
+        body.pack(side="left", fill="both", expand=True)
+        scrollbar.config(command=body.yview)
+        body.insert("1.0", quota_summary((self.snapshot or {}).get("account")))
+        body.config(state="disabled")
+        detail.lift()
 
     def run(self):
         if not self.preview:
@@ -447,6 +527,7 @@ class Dashboard:
                 "codex-pulse", icon_image("idle"), "Codex Pulse",
                 menu=pystray.Menu(
                     pystray.MenuItem("打开 Codex Pulse", lambda _icon, _item: self.events.put(("show", None)), default=True),
+                    pystray.MenuItem("查看完整额度与重置卡", lambda _icon, _item: self.events.put(("quota", None))),
                     pystray.MenuItem("刷新", lambda _icon, _item: self.events.put(("refresh", None))),
                     pystray.MenuItem("检查更新", lambda _icon, _item: self.events.put(("check_update", None))),
                     pystray.MenuItem("退出", lambda _icon, _item: self.events.put(("quit", None))),

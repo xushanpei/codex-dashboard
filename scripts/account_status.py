@@ -20,6 +20,32 @@ class AccountMismatch(Exception):
     """Account identity changed while account and quota were being read."""
 
 
+def _account_payload(account_result, limit_result):
+    account = account_result.get("account") or {}
+    if not account:
+        return None
+    legacy = limit_result.get("rateLimits")
+    if not isinstance(legacy, dict):
+        legacy = None
+    by_id = limit_result.get("rateLimitsByLimitId")
+    reset_credits = limit_result.get("rateLimitResetCredits")
+    buckets = by_id if isinstance(by_id, dict) else {}
+    if account.get("type") != "chatgpt":
+        legacy, buckets, reset_credits = None, {}, None
+    bucket_plan = next((item.get("planType") for item in buckets.values()
+                        if isinstance(item, dict) and item.get("planType")), None)
+    return {
+        "email": account.get("email"),
+        "plan_type": account.get("planType") or (legacy or {}).get("planType") or bucket_plan,
+        "auth_type": account.get("type"),
+        "rate_limits": legacy,
+        "rate_limits_by_limit_id": buckets,
+        "rate_limit_reset_credits": reset_credits if isinstance(reset_credits, dict) else None,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "stale": False,
+    }
+
+
 def _auth_version():
     try:
         return AUTH.stat().st_mtime_ns
@@ -78,22 +104,13 @@ def _query():
                 continue
             if message.get("id") in (2, 3):
                 found[message["id"]] = message.get("result") or {}
-        if not {2, 3}.issubset(found) or not found[2].get("account") or not found[3].get("rateLimits"):
+        if not found.get(2, {}).get("account"):
             return None
         workspace_id = (found.get(2, {}).get("workspaceRouting") or {}).get("chatgptAccountId")
         quota_account_id = found.get(3, {}).get("accountId")
         if workspace_id and quota_account_id and workspace_id != quota_account_id:
             raise AccountMismatch("Account changed during quota read")
-        account = found.get(2, {}).get("account") or {}
-        limits = found.get(3, {}).get("rateLimits") or {}
-        return {
-            "email": account.get("email"),
-            "plan_type": account.get("planType") or limits.get("planType"),
-            "auth_type": account.get("type"),
-            "rate_limits": limits,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "stale": False,
-        }
+        return _account_payload(found[2], found.get(3, {}))
     finally:
         process.terminate()
         try:

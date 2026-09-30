@@ -53,7 +53,7 @@ sh scripts/install_macos_app.sh
 
 ## 怎么用
 
-- **查看面板：**点击 macOS 菜单栏或 Windows 托盘里的 Codex Pulse 图标。面板每约 2 秒刷新一次。
+- **查看面板：**点击 macOS 菜单栏或 Windows 托盘里的 Codex Pulse 图标。面板每约 2 秒刷新一次。macOS 菜单栏图标可右键查看额度摘要、刷新、复制用量摘要和检查更新；Windows 托盘右键可打开完整额度与重置卡窗口。
 - **在 Codex 聊天里查询：**安装插件后**新开一个本地聊天**，输入“显示我当前 Codex 的状态和 Token 用量”。也可直接调用 `get_token_usage`。云端聊天不能读取你电脑上的记录。
 - **验证插件：**运行 `codex plugin list --json` 和 `codex mcp list --json`，确认存在 `codex-pulse`，且 MCP 脚本路径指向本机插件缓存。
 
@@ -74,6 +74,9 @@ codex plugin add codex-pulse@codex-pulse
 <summary>数据口径与隐私</summary>
 
 - 今日、本周、本月 Token 是这台电脑上所有 Codex 登录账号产生的记录，按本机时区统计；套餐额度只属于**当前登录账号**。额度百分比不是 Token 余额或 API 账单。
+- 额度窗口按当前账号接口实际返回的内容展示，可能是 5 小时、7 天或其他周期；每个窗口都有自己的剩余比例和重置时间。额度数据约每 15 秒重新读取，**5 小时／7 天是额度周期，不是插件刷新频率**。接口未返回的月度额度不会凭空显示。
+- 若账号有额度重置卡，会显示可用张数及接口提供的有效期。这里只读展示，不会自动使用重置卡。
+- API Key 接入可显示本机 Token 统计，但没有 ChatGPT 套餐剩余百分比。API 用量和账单请在 [OpenAI 平台用量页](https://platform.openai.com/usage) 查看。
 - Token 记录通常在模型响应完成后写入，生成过程中的数字不会逐 Token 增加。缓存输入包含在输入 Token 中，推理 Token 包含在输出 Token 中。
 - “上下文剩余”按最近请求输入和模型窗口估算，并非 Codex 精确上下文计数。
 - 当前聊天优先根据 Codex Desktop 本机日志中的窗口事件识别；日志不可用时按最近活动显示。桌面日志格式变动后可能需要适配。

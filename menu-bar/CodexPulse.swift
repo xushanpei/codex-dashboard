@@ -43,12 +43,72 @@ private struct AccountLimits: Decodable {
     let credits: CreditInfo?
 }
 
+private struct RateLimitBucket: Decodable {
+    let limitName: String?
+    let primary: RateLimit?
+    let secondary: RateLimit?
+    let credits: CreditInfo?
+}
+
+private struct ResetCredit: Decodable {
+    let title: String?
+    let status: String?
+    let expiresAt: Int?
+}
+
+private struct ResetCredits: Decodable {
+    let availableCount: Int?
+    let credits: [ResetCredit]?
+}
+
 private struct Account: Decodable {
     let email: String?
     let planType: String?
     let authType: String?
     let rateLimits: AccountLimits?
+    let rateLimitsByLimitId: [String: RateLimitBucket]?
+    let rateLimitResetCredits: ResetCredits?
     let stale: Bool?
+}
+
+private struct QuotaWindow: Identifiable {
+    let id: String
+    let title: String
+    let durationMinutes: Int?
+    let remaining: Double?
+    let resetsAt: Int?
+}
+
+private func quotaWindowLabel(_ minutes: Int?) -> String {
+    guard let minutes, minutes > 0 else { return "额度窗口" }
+    if minutes % 10_080 == 0 { return "\(minutes / 10_080) 周额度" }
+    if minutes % 1_440 == 0 { return "\(minutes / 1_440) 天额度" }
+    if minutes % 60 == 0 { return "\(minutes / 60) 小时额度" }
+    return "\(minutes) 分钟额度"
+}
+
+private func quotaWindows(_ account: Account?) -> [QuotaWindow] {
+    guard let account, account.stale != true,
+          account.authType != "apiKey", account.authType != "amazonBedrock" else { return [] }
+    var windows: [QuotaWindow] = []
+    func add(_ rate: RateLimit?, id: String, prefix: String) {
+        guard let rate else { return }
+        windows.append(QuotaWindow(
+            id: id, title: prefix + quotaWindowLabel(rate.minutes), durationMinutes: rate.minutes,
+            remaining: rate.usedPercent.map { min(100, max(0, 100 - $0)) }, resetsAt: rate.resetsAt))
+    }
+    if let buckets = account.rateLimitsByLimitId, !buckets.isEmpty {
+        for (id, bucket) in buckets.sorted(by: { $0.key < $1.key }) {
+            let label = bucket.limitName.flatMap { $0.isEmpty ? nil : $0 } ?? id
+            let name = id == "codex" ? "" : "\(label) · "
+            add(bucket.primary, id: "\(id)-primary", prefix: name)
+            add(bucket.secondary, id: "\(id)-secondary", prefix: name)
+        }
+    } else {
+        add(account.rateLimits?.primary, id: "legacy-primary", prefix: "")
+        add(account.rateLimits?.secondary, id: "legacy-secondary", prefix: "")
+    }
+    return windows.sorted { ($0.durationMinutes ?? Int.max, $0.title) < ($1.durationMinutes ?? Int.max, $1.title) }
 }
 
 private struct CreditInfo: Decodable {
@@ -287,9 +347,6 @@ private struct DashboardView: View {
     let quit: () -> Void
 
     private var current: Session? { model.snapshot?.currentSession }
-    private var primaryRate: RateLimit? {
-        model.snapshot?.account?.stale == false ? model.snapshot?.account?.rateLimits?.primary : nil
-    }
     private var isRunning: Bool { current?.taskStatus == "running" }
     private var statusLabel: String {
         guard current != nil else { return "暂无记录" }
@@ -384,22 +441,27 @@ private struct DashboardView: View {
 
     private var accountCard: some View {
         let account = model.snapshot?.account
+        let identity = account?.email ?? (account?.authType == "apiKey" ? "API Key 接入" : "Codex 账号信息加载中")
+        let subtitle = account?.authType == "chatgpt" ? "ChatGPT 登录" :
+            (account?.authType == "apiKey" ? "按 API 用量计费" :
+             (account?.authType == "amazonBedrock" ? "Amazon Bedrock" : "Codex 账号"))
+        let badge = account?.authType == "apiKey" ? "API" : (account?.planType ?? "—").uppercased()
         return GlassCard {
             HStack(spacing: 12) {
                 ZStack {
                     Circle().fill(Theme.violet.opacity(0.22)).frame(width: 40, height: 40)
-                    Text(String(account?.email?.prefix(1) ?? "C").uppercased())
+                    Text(String(identity.prefix(1)).uppercased())
                         .font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.violet)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(account?.email ?? "Codex 账号信息加载中")
+                    Text(identity)
                         .font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
                         .lineLimit(1).truncationMode(.middle)
-                    Text(account?.authType == "chatgpt" ? "ChatGPT 登录" : "Codex 账号")
+                    Text(subtitle)
                         .font(.system(size: 10)).foregroundStyle(Theme.muted)
                 }
                 Spacer()
-                Text((account?.planType ?? "未知套餐").uppercased())
+                Text(badge)
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(Theme.cyan)
                     .padding(.horizontal, 9).padding(.vertical, 5)
@@ -503,35 +565,99 @@ private struct DashboardView: View {
     }
 
     private var limitCard: some View {
-        let rate = primaryRate
-        let remaining = rate?.usedPercent.map { max(0, 100 - $0) }
+        let account = model.snapshot?.account
+        let windows = quotaWindows(account)
+        let creditInfo = account?.rateLimits?.credits ?? account?.rateLimitsByLimitId?.values.compactMap { $0.credits }.first
+        return VStack(spacing: 12) {
+            if account?.authType == "apiKey" {
+                GlassCard {
+                    Label("API Key 接入", systemImage: "key.fill")
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                    Text("按 OpenAI API 用量计费；ChatGPT 套餐剩余百分比不适用于此账号。本机 Token 统计仍可使用。")
+                        .font(.system(size: 10)).foregroundStyle(Theme.muted)
+                    Link("查看 API 用量", destination: URL(string: "https://platform.openai.com/usage")!)
+                        .font(.system(size: 10)).foregroundStyle(Theme.cyan)
+                }
+            } else if account?.authType == "amazonBedrock" {
+                GlassCard {
+                    Label("Amazon Bedrock 接入", systemImage: "cloud.fill")
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                    Text("当前登录方式不提供 ChatGPT 套餐额度。本机 Token 统计仍可使用。")
+                        .font(.system(size: 10)).foregroundStyle(Theme.muted)
+                }
+            } else {
+                if windows.isEmpty {
+                    GlassCard {
+                        Label("套餐额度", systemImage: "gauge.with.dots.needle.67percent")
+                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                        Text("当前账号未返回额度窗口，等待刷新")
+                            .font(.system(size: 10)).foregroundStyle(Theme.muted)
+                    }
+                } else {
+                    ForEach(windows) { window in quotaCard(window) }
+                }
+                if let creditInfo, creditInfo.hasCredits == true {
+                    GlassCard {
+                        Label("工作区积分", systemImage: "circle.grid.cross.fill")
+                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                        Text(creditInfo.unlimited == true ? "无限制" : "余额 \(creditInfo.balance ?? "待更新")")
+                            .font(.system(size: 11)).foregroundStyle(Theme.muted)
+                    }
+                }
+                resetCreditsCard(account?.stale == true ? nil : account?.rateLimitResetCredits)
+            }
+        }
+    }
+
+    private func quotaCard(_ window: QuotaWindow) -> some View {
+        let tint = window.durationMinutes == 10_080 ? Theme.violet : Theme.cyan
         return GlassCard {
             HStack {
-                Label("套餐额度剩余", systemImage: "gauge.with.dots.needle.67percent")
+                Label(window.title, systemImage: "gauge.with.dots.needle.67percent")
                     .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
                 Spacer()
-                Text(remaining.map { String(format: "%.0f%%", $0) } ?? "—")
-                    .font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(Theme.violet)
+                Text(window.remaining.map { String(format: "剩余 %.0f%%", $0) } ?? "余量未提供")
+                    .font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(tint)
             }
-            MeterBar(fraction: (remaining ?? 0) / 100, tint: Theme.violet).padding(.vertical, 8)
+            MeterBar(fraction: (window.remaining ?? 0) / 100, tint: tint).padding(.vertical, 8)
             HStack {
-                Text(rate?.minutes == 10_080 ? "7 天窗口" : "窗口 \(rate?.minutes ?? 0) 分钟")
+                Text("ChatGPT 套餐窗口")
                 Spacer()
-                Text("重置 \(resetTime(rate?.resetsAt))")
+                Text("重置 \(resetTime(window.resetsAt))")
             }
             .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
-            Text(model.snapshot?.account?.stale == true || model.snapshot?.account == nil ? "账号额度暂不可用，等待刷新" : "ChatGPT 套餐窗口，非 token 或 API 余额")
-                .font(.system(size: 10)).foregroundStyle(Theme.muted.opacity(0.7)).padding(.top, 3)
-            if let secondary = model.snapshot?.account?.rateLimits?.secondary,
-               let used = secondary.usedPercent {
-                Text("第二窗口剩余 \(Int(max(0, 100 - used)))% · 重置 \(resetTime(secondary.resetsAt))")
-                    .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
+        }
+    }
+
+    private func resetCreditsCard(_ credits: ResetCredits?) -> some View {
+        GlassCard {
+            HStack {
+                Label("额度重置卡", systemImage: "arrow.counterclockwise.circle.fill")
+                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                Spacer()
+                Text(credits?.availableCount.map { "可用 \($0) 张" } ?? "数量未提供")
+                    .font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.lime)
             }
-            if let credits = model.snapshot?.account?.rateLimits?.credits,
-               credits.hasCredits == true {
-                Text(credits.unlimited == true ? "积分：无限制" : "积分余额：\(credits.balance ?? "待更新")")
-                    .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
+            if let credits {
+                if let details = credits.credits, !details.isEmpty {
+                    ForEach(details.indices, id: \.self) { index in
+                        HStack {
+                            Text(details[index].title == "Full reset" ? "完整额度重置" : (details[index].title ?? "重置卡 \(index + 1)"))
+                            Spacer()
+                            Text(details[index].expiresAt.map { "有效期 \(resetTime($0))" } ?? "有效期未提供")
+                        }
+                        .font(.system(size: 10)).foregroundStyle(Theme.muted)
+                    }
+                } else {
+                    Text(credits.availableCount == 0 ? "当前没有可用重置卡" : "服务只返回数量，未返回详情")
+                        .font(.system(size: 10)).foregroundStyle(Theme.muted)
+                }
+            } else {
+                Text("当前账号未返回重置卡信息")
+                    .font(.system(size: 10)).foregroundStyle(Theme.muted)
             }
+            Text("只读展示，不会自动消耗重置卡")
+                .font(.system(size: 10)).foregroundStyle(Theme.muted.opacity(0.7))
         }
     }
 
@@ -713,7 +839,8 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
                 .font: numberFont, .foregroundColor: NSColor.labelColor
             ]))
         } else {
-            text.append(NSAttributedString(string: "额度未知", attributes: [
+            let fallback = model.snapshot?.account?.authType == "apiKey" ? "API Key" : "额度未知"
+            text.append(NSAttributedString(string: fallback, attributes: [
                 .font: font, .foregroundColor: NSColor.labelColor
             ]))
         }
@@ -728,7 +855,8 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
         status.button?.imagePosition = .imageLeft
         showMenuStatus("加载中", iconState: "idle", remaining: nil)
         status.button?.target = self
-        status.button?.action = #selector(togglePanel)
+        status.button?.action = #selector(handleStatusClick)
+        status.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         let panel = PulsePanel(contentRect: NSRect(x: 0, y: 0, width: 430, height: 690),
                                styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.title = "Codex Pulse"
@@ -851,7 +979,88 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func togglePanel() {
+    @objc private func handleStatusClick() {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            hidePanel()
+            showContextMenu()
+        } else {
+            togglePanel()
+        }
+    }
+
+    private func showContextMenu() {
+        let menu = NSMenu(title: "Codex Pulse")
+        menu.autoenablesItems = false
+        let session = model.snapshot?.currentSession
+        let state = session?.taskStatus == "running" ? "运行中" :
+            (session?.taskStatus == "unconfirmed" ? "待确认" : "空闲")
+        let header = NSMenuItem(title: "Codex Pulse  ·  \(state)", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
+        let account = model.snapshot?.account
+        if account?.authType == "apiKey" {
+            let item = NSMenuItem(title: "API Key · 按 API 用量计费", action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
+        } else {
+            for window in quotaWindows(account) {
+                let amount = window.remaining.map { String(format: "%.0f%%", $0) } ?? "未知"
+                let item = NSMenuItem(title: "\(window.title)  剩余 \(amount)  ·  重置 \(resetTime(window.resetsAt))",
+                                      action: nil, keyEquivalent: "")
+                item.isEnabled = false
+                menu.addItem(item)
+            }
+            if let count = account?.rateLimitResetCredits?.availableCount {
+                let item = NSMenuItem(title: "额度重置卡  可用 \(count) 张", action: nil, keyEquivalent: "")
+                item.isEnabled = false
+                menu.addItem(item)
+            }
+        }
+        menu.addItem(.separator())
+        addMenuAction("打开面板", selector: #selector(openPanelFromMenu), to: menu)
+        addMenuAction("立即刷新", selector: #selector(refreshNow), to: menu)
+        addMenuAction("检查更新", selector: #selector(checkUpdatesFromMenu), to: menu)
+        addMenuAction("复制用量摘要", selector: #selector(copyUsageSummary), to: menu)
+        menu.addItem(.separator())
+        addMenuAction("打开 GitHub 项目", selector: #selector(openGitHub), to: menu)
+        addMenuAction("退出 Codex Pulse", selector: #selector(quitFromMenu), to: menu)
+        status.popUpMenu(menu)
+    }
+
+    private func addMenuAction(_ title: String, selector: Selector, to menu: NSMenu) {
+        let item = NSMenuItem(title: title, action: selector, keyEquivalent: "")
+        item.target = self
+        menu.addItem(item)
+    }
+
+    @objc private func openPanelFromMenu() { showPanel() }
+    @objc private func checkUpdatesFromMenu() { checkForUpdates(manual: true) }
+    @objc private func openGitHub() {
+        if let url = URL(string: "https://github.com/xushanpei/codex-pulse") { NSWorkspace.shared.open(url) }
+    }
+    @objc private func quitFromMenu() { NSApplication.shared.terminate(nil) }
+
+    @objc private func copyUsageSummary() {
+        let snapshot = model.snapshot
+        var lines = ["Codex Pulse", "当前状态：\(snapshot?.currentSession?.taskStatus == "running" ? "运行中" : "空闲")"]
+        if let modelName = snapshot?.currentSession?.model { lines.append("模型：\(modelName)") }
+        if let total = snapshot?.currentSession?.usage.totalTokens { lines.append("会话累计：\(total) tokens") }
+        if snapshot?.account?.authType == "apiKey" {
+            lines.append("API Key 接入：按 API 用量计费")
+        } else {
+            for window in quotaWindows(snapshot?.account) {
+                let amount = window.remaining.map { String(format: "%.0f%%", $0) } ?? "未知"
+                lines.append("\(window.title)：剩余 \(amount)，重置 \(resetTime(window.resetsAt))")
+            }
+            if let count = snapshot?.account?.rateLimitResetCredits?.availableCount {
+                lines.append("额度重置卡：可用 \(count) 张")
+            }
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+    }
+
+    private func togglePanel() {
         if panel?.isVisible == true { hidePanel() }
         else { showPanel() }
     }
@@ -925,9 +1134,14 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
                     let session = snapshot.currentSession
                     let state = session?.taskStatus == "running" ? "运行中" : (session?.taskStatus == "unconfirmed" ? "待确认" : "空闲")
                     let iconState = session?.taskStatus == "running" ? "running" : (session?.taskStatus == "unconfirmed" ? "unconfirmed" : "idle")
-                    let quota = snapshot.account?.stale == false ? snapshot.account?.rateLimits?.primary : nil
+                    let quota = quotaWindows(snapshot.account).first
                     self?.showMenuStatus(state, iconState: iconState,
-                                         remaining: quota?.usedPercent.map { Int(max(0, 100 - $0)) })
+                                         remaining: quota?.remaining.map { Int($0) })
+                    if snapshot.account?.authType == "apiKey" {
+                        self?.status.button?.toolTip = "Codex Pulse · \(state) · API Key 接入"
+                    } else if let quota {
+                        self?.status.button?.toolTip = "Codex Pulse · \(state) · \(quota.title)剩余 \(Int(quota.remaining ?? 0))%"
+                    }
                 } else {
                     self?.model.error = readError ?? "未知错误"
                     self?.showMenuStatus("状态未知", iconState: "error", remaining: nil)

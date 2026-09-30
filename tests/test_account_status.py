@@ -1,4 +1,5 @@
 import json
+import io
 import os
 import sys
 import tempfile
@@ -12,6 +13,42 @@ import account_status
 
 
 class AccountStatusTests(unittest.TestCase):
+    def test_full_chatgpt_limits_and_reset_credits_are_kept(self):
+        result = account_status._account_payload(
+            {"account": {"type": "chatgpt", "planType": "team"}},
+            {"rateLimits": {"primary": {"usedPercent": 92}},
+             "rateLimitsByLimitId": {"codex": {"primary": {"windowDurationMins": 300, "usedPercent": 35},
+                                                "secondary": {"windowDurationMins": 10080, "usedPercent": 92}}},
+             "rateLimitResetCredits": {"availableCount": 3, "credits": [{"title": "Rate-limit reset"}]}})
+        self.assertEqual(result["rate_limits_by_limit_id"]["codex"]["secondary"]["windowDurationMins"], 10080)
+        self.assertEqual(result["rate_limit_reset_credits"]["availableCount"], 3)
+
+    def test_api_key_account_survives_missing_chatgpt_rate_limits(self):
+        class FakeProcess:
+            stdin = io.BytesIO()
+            stdout = [json.dumps({"id": 2, "result": {"account": {"type": "apiKey"}}}).encode() + b"\n",
+                      json.dumps({"id": 3, "error": {"code": -32000, "message": "not available"}}).encode() + b"\n"]
+
+            def terminate(self): pass
+            def wait(self, timeout=None): return 0
+
+        with patch.object(account_status, "_codex_binary", return_value="codex"), \
+             patch.object(account_status.subprocess, "Popen", return_value=FakeProcess()):
+            result = account_status._query()
+        self.assertEqual(result["auth_type"], "apiKey")
+        self.assertIsNone(result["rate_limits"])
+        self.assertEqual(result["rate_limits_by_limit_id"], {})
+
+    def test_api_key_switch_discards_chatgpt_limits_from_overlapping_response(self):
+        result = account_status._account_payload(
+            {"account": {"type": "apiKey"}},
+            {"rateLimits": {"primary": {"usedPercent": 91}},
+             "rateLimitsByLimitId": {"codex": {"primary": {"usedPercent": 91}}},
+             "rateLimitResetCredits": {"availableCount": 3}})
+        self.assertIsNone(result["rate_limits"])
+        self.assertEqual(result["rate_limits_by_limit_id"], {})
+        self.assertIsNone(result["rate_limit_reset_credits"])
+
     def test_switch_during_quota_request_retries_new_account(self):
         with tempfile.TemporaryDirectory() as temp:
             old_cache, old_auth = account_status.CACHE, account_status.AUTH

@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import collector
 from install_windows import install
-from windows_tray import quota_remaining
+from windows_tray import quota_remaining, quota_summary, quota_windows
 
 
 class WindowsSupportTests(unittest.TestCase):
@@ -46,6 +46,26 @@ class WindowsSupportTests(unittest.TestCase):
         self.assertEqual(quota_remaining(account), 74)
         account["stale"] = True
         self.assertIsNone(quota_remaining(account))
+
+    def test_multiple_quota_windows_and_reset_cards(self):
+        account = {"auth_type": "chatgpt", "stale": False,
+                   "rate_limits_by_limit_id": {"codex": {
+                       "primary": {"usedPercent": 20, "windowDurationMins": 300, "resetsAt": 1900000000},
+                       "secondary": {"usedPercent": 90, "windowDurationMins": 10080, "resetsAt": 1900100000}}},
+                   "rate_limit_reset_credits": {"availableCount": 3}}
+        self.assertEqual([row[0] for row in quota_windows(account)], ["5 小时额度", "1 周额度"])
+        self.assertEqual(quota_remaining(account), 80)
+        summary = quota_summary(account)
+        self.assertIn("5 小时额度  剩余 80%", summary)
+        self.assertIn("1 周额度  剩余 10%", summary)
+        self.assertIn("可用 3 张", summary)
+
+    def test_api_key_account_has_no_chatgpt_quota(self):
+        account = {"auth_type": "apiKey", "stale": False,
+                   "rate_limits": {"primary": {"usedPercent": 20}}}
+        self.assertEqual(quota_windows(account), [])
+        self.assertIsNone(quota_remaining(account))
+        self.assertIn("按 OpenAI API 用量计费", quota_summary(account))
 
 
 if __name__ == "__main__":
