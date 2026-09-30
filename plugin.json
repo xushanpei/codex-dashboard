@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-pulse",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Live local Codex status, quota, and token usage for macOS and Windows.",
   "author": {
     "name": "xushanpei",
@@ -15,13 +15,13 @@
     "com.openai": {
       "interface": {
         "displayName": "Codex Dashboard",
-        "shortDescription": "一眼看清 Codex 账号与额度",
-        "longDescription": "查看当前账号、套餐额度、会话状态与本机 Token 用量。",
+        "shortDescription": "Codex account and quota at a glance",
+        "longDescription": "See your Codex account, plan quota, chat status, and local token usage.",
         "developerName": "xushanpei",
         "category": "Productivity",
         "capabilities": ["Read"],
         "logo": "./assets/app-icon.png",
-        "defaultPrompt": "显示 Codex Dashboard 状态。"
+        "defaultPrompt": "Show my Codex Dashboard status."
       }
     }
   }

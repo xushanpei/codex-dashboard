@@ -60,13 +60,18 @@ def init(db):
       rate_json TEXT);
     CREATE TABLE IF NOT EXISTS desktop_log_files(path TEXT PRIMARY KEY, inode INTEGER, offset INTEGER);
     CREATE TABLE IF NOT EXISTS desktop_selection(key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE IF NOT EXISTS settings_events(
+      session_id TEXT, at TEXT, source TEXT, line_offset INTEGER, model TEXT, effort TEXT,
+      PRIMARY KEY(session_id,at,source,line_offset));
     """)
     version = db.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
-    if not version or version[0] != "5":
+    if not version or version[0] != "8":
         db.execute("DELETE FROM files")
         db.execute("DELETE FROM sessions")
         db.execute("DELETE FROM session_state")
-        db.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version','5')")
+        db.execute("DELETE FROM settings_events")
+        db.execute("DELETE FROM meta WHERE key='history_scan_day'")
+        db.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version','8')")
     selection_version = db.execute("SELECT value FROM meta WHERE key='desktop_selection_version'").fetchone()
     if not selection_version or selection_version[0] != "2":
         db.execute("DELETE FROM desktop_log_files")
@@ -85,8 +90,8 @@ def upsert_state(db, session_id, path, at, **fields):
 
 
 def relevant_files(now):
-    # Calendar month and recent 30-day chart, whichever reaches farther back.
-    count = max(30, now.day)
+    # Keep a rolling history for the optional detailed chart and CSV export.
+    count = 90
     for n in range(count):
         day = (now.date() - timedelta(days=n)).strftime("%Y/%m/%d")
         yield n, (ROOT / day).glob("*.jsonl")
@@ -163,6 +168,9 @@ def scan_file(db, path, usage_only=False):
     old = db.execute("SELECT inode, offset FROM files WHERE path=?", (key,)).fetchone()
     reset = old is not None and (old[0] != stat.st_ino or old[1] > stat.st_size)
     if reset:
+        db.execute("DELETE FROM settings_events WHERE session_id IN ("
+                   "SELECT session_id FROM session_state WHERE path=? UNION "
+                   "SELECT session_id FROM sessions WHERE path=?)", (key, key))
         db.execute("DELETE FROM usage WHERE session_id IN (SELECT session_id FROM sessions WHERE path=?)", (key,))
         db.execute("DELETE FROM sessions WHERE path=?", (key,))
         db.execute("DELETE FROM session_state WHERE path=?", (key,))
@@ -181,7 +189,8 @@ def scan_file(db, path, usage_only=False):
             if not line.endswith(b"\n"):
                 file.seek(line_start)
                 break
-            if usage_only and b'token_usage_record' not in line:
+            if usage_only and not any(marker in line for marker in
+                                      (b'token_usage_record', b'"turn_context"', b'"thread_settings_applied"')):
                 continue
             try:
                 item = json.loads(line)
@@ -198,6 +207,9 @@ def scan_file(db, path, usage_only=False):
             elif item.get("type") == "turn_context":
                 upsert_state(db, session_id, key, timestamp,
                              model=payload.get("model"), effort=payload.get("effort"), cwd=payload.get("cwd"))
+                if payload.get("model") or payload.get("effort"):
+                    db.execute("INSERT OR REPLACE INTO settings_events VALUES (?,?,?,?,?,?)",
+                               (session_id, timestamp, "turn_context", line_start, payload.get("model"), payload.get("effort")))
             elif item.get("type") == "event_msg" and payload.get("type") == "thread_settings_applied":
                 settings = payload.get("thread_settings") or {}
                 mapping = {"model": "model", "reasoning_effort": "effort",
@@ -205,6 +217,9 @@ def scan_file(db, path, usage_only=False):
                 changes = {target: settings[source] for source, target in mapping.items() if source in settings}
                 if changes:
                     upsert_state(db, session_id, key, timestamp, **changes)
+                    if changes.get("model") or changes.get("effort"):
+                        db.execute("INSERT OR REPLACE INTO settings_events VALUES (?,?,?,?,?,?)",
+                                   (session_id, timestamp, "settings_applied", line_start, changes.get("model"), changes.get("effort")))
             elif item.get("type") == "token_usage_record":
                 response_id = payload.get("response_id")
                 usage = payload.get("usage")
@@ -285,6 +300,29 @@ def daily_usage(db, today, count):
     return [{"date": day, "total_tokens": totals[day]} for day in days]
 
 
+def runtime_signals(db, session_id):
+    """Report observable model/effort transitions, not a judgment of answer quality."""
+    if not session_id:
+        return {"model_change": None, "effort_reduction": None, "observed_events": 0}
+    rows = list(db.execute("SELECT at,source,model,effort FROM settings_events WHERE session_id=? "
+                           "ORDER BY at DESC,line_offset DESC LIMIT 100", (session_id,)))
+    order = {"none": 0, "minimal": 1, "low": 2, "medium": 3,
+             "high": 4, "xhigh": 5, "max": 6, "ultra": 7}
+    previous_model = previous_effort = None
+    model_change = effort_reduction = None
+    for at, source, model, effort in reversed(rows):
+        if model:
+            if previous_model and model != previous_model:
+                model_change = {"at": at, "from": previous_model, "to": model, "source": source}
+            previous_model = model
+        if effort:
+            if previous_effort in order and effort in order and order[effort] < order[previous_effort]:
+                effort_reduction = {"at": at, "from": previous_effort, "to": effort, "source": source}
+            previous_effort = effort
+    return {"model_change": model_change, "effort_reduction": effort_reduction,
+            "observed_events": len(rows)}
+
+
 def read_catalog(selected_id=None):
     """Read persisted per-thread settings, never infer foreground chat from activity."""
     path = ROOT.parent / "state_5.sqlite"
@@ -322,9 +360,15 @@ def snapshot(selected_id=None):
         target_id = selected_id or desktop_id
         catalog = read_catalog(target_id)
         catalog_by_id = {entry["id"]: entry for entry in catalog}
+        history_scan_day = db.execute("SELECT value FROM meta WHERE key='history_scan_day'").fetchone()
+        scan_old_history = not history_scan_day or history_scan_day[0] != today.date().isoformat()
         for age, paths in relevant_files(now):
+            if age >= 30 and not scan_old_history:
+                break
             for path in paths:
                 scan_file(db, path, usage_only=age >= 7)
+        if scan_old_history:
+            db.execute("INSERT OR REPLACE INTO meta VALUES ('history_scan_day',?)", (today.date().isoformat(),))
         selected_path = catalog_by_id.get(target_id, {}).get("rollout_path")
         if selected_path:
             path = Path(selected_path).resolve()
@@ -335,9 +379,10 @@ def snapshot(selected_id=None):
             else:
                 if path.is_file():
                     scan_file(db, path)
-        retention = (today - timedelta(days=max(29, today.day - 1))).astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        retention = (today - timedelta(days=89)).astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
         seven_start = (today - timedelta(days=6)).astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
         db.execute("DELETE FROM usage WHERE at<?", (retention,))
+        db.execute("DELETE FROM settings_events WHERE at<?", (retention,))
         db.commit()
         cols = ",".join(f"COALESCE(s.{name},0)" for name in FIELDS)
         rows = db.execute(f"SELECT st.session_id,st.updated_at,{cols},s.limit_percent,s.limit_window_minutes,s.limit_resets_at,"
@@ -366,6 +411,8 @@ def snapshot(selected_id=None):
                 "seven_days": sum_usage(db, seven_start),
                 "daily_usage": daily_usage(db, today, 7),
                 "month_daily_usage": daily_usage(db, today, today.day),
+                "history_daily_usage": daily_usage(db, today, 90),
+                "runtime_signals": runtime_signals(db, current["id"] if current else None),
                 "updated_at": now.isoformat(), "source": str(ROOT)}
     if ROOT == Path.home() / ".codex/sessions" and os.environ.get("CODEX_PULSE_DISABLE_ACCOUNT") != "1":
         result["account"] = read_account()

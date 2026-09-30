@@ -1,36 +1,37 @@
 # Codex Dashboard
 
-在 macOS 菜单栏或 Windows 系统托盘查看 Codex 当前聊天、模型、套餐余量、上下文余量和 Token 用量。另附本地 Codex 插件工具 `get_token_usage`。
+[English](README.md) · [简体中文](README.zh-CN.md)
 
-> 独立社区项目，与 OpenAI 无隶属关系。Codex 名称与 Logo 属于 OpenAI。
+Codex Dashboard shows your current Codex account, plan quota, reset cards, chat status, context estimate, and local token usage in the macOS menu bar or Windows system tray. It also includes the local Codex tool `get_token_usage`.
 
-## 让 AI 帮你安装
+> An independent community project, unaffiliated with OpenAI. Codex and its logo belong to OpenAI.
 
-把下面这段话发给**本地 Codex**。它会按系统选择步骤，并在安装后检查插件和桌面程序：
+## Ask Codex to install it
+
+Send this to **local Codex**:
 
 ```text
-请安装 Codex Dashboard（仓库名 codex-pulse）：https://github.com/xushanpei/codex-pulse
-先阅读仓库里的 skills/install-codex-pulse/SKILL.md，再按我的系统安装 Codex 插件和菜单栏／托盘程序，并验证两者都能运行。保留我其他插件和代理设置；回复中不要展示账号邮箱或完整会话内容。
+Install Codex Dashboard from https://github.com/xushanpei/codex-pulse. Read skills/install-codex-pulse/SKILL.md first. Install the Codex plugin and the menu bar or tray app for my operating system, then verify both. Preserve my other plugins and proxy settings. Do not print my account email or full chat content.
 ```
 
-安装后的新聊天也可以直接使用 `$install-codex-pulse` 来检查或更新。插件自带的 skill 只会在**新聊天**中加载。
+The bundled `$install-codex-pulse` skill becomes available in **new local chats** after installation.
 
-## 自己安装
+## Install manually
 
 ### macOS
 
-需要 macOS 13+、Python 3 和 Codex CLI。Apple 芯片与 Intel 均可使用。
+Requires macOS 13+, Python 3, and Codex CLI. Both Apple silicon and Intel Macs are supported.
 
-1. 安装 Codex 插件，在终端运行：
+1. Install the Codex plugin:
 
    ```sh
    codex plugin marketplace add xushanpei/codex-pulse
    codex plugin add codex-pulse@codex-pulse
    ```
 
-2. 下载 [macOS App](https://github.com/xushanpei/codex-pulse/releases/latest/download/CodexPulse-macOS-universal.zip)，解压后将 **Codex Pulse.app** 放入“应用程序”并打开。界面显示名为 **Codex Dashboard**；保留原安装包文件名以兼容自动更新。菜单栏会出现图标，点击即可查看面板。
+2. Download the [macOS app](https://github.com/xushanpei/codex-pulse/releases/latest/download/CodexPulse-macOS-universal.zip), unzip it, move **Codex Pulse.app** to Applications, and open it. The displayed app name is **Codex Dashboard**. The older bundle filename is kept for update compatibility.
 
-App 尚未进行 Apple Developer ID 签名和公证。如果系统阻止打开，可从源码在本机编译；这需要 Xcode 工具链：
+The app is not signed or notarized with Apple Developer ID. If macOS blocks it, build and install it locally with an Xcode toolchain:
 
 ```sh
 git clone https://github.com/xushanpei/codex-pulse.git
@@ -40,50 +41,49 @@ sh scripts/install_macos_app.sh
 
 ### Windows
 
-需要 Windows 10/11、Python 3.9+（含 Tkinter 和 `py` 命令）、Codex CLI。Windows 托盘界面仍待实机验收。
+Requires Windows 10/11, Python 3.9+ with Tkinter and the `py` launcher, and Codex CLI. The Windows tray UI has CI coverage but has not been verified on a physical Windows machine.
 
-1. 下载 [完整源码 ZIP](https://github.com/xushanpei/codex-pulse/releases/latest/download/CodexPulse-source.zip) 并解压。
-2. 在解压后的目录打开 PowerShell 或命令提示符，运行：
+1. Download and extract the [complete source ZIP](https://github.com/xushanpei/codex-pulse/releases/latest/download/CodexPulse-source.zip).
+2. In the extracted folder, run:
 
    ```bat
    py -3 scripts\install_windows.py
    ```
 
-脚本会安装托盘依赖、登记本机插件并启动 Codex Dashboard。以后双击 `%USERPROFILE%\plugins\codex-pulse\scripts\start_windows.cmd` 即可启动；右键托盘图标可退出。首次安装依赖需要联网。
+The installer sets up tray dependencies, registers the local plugin, and starts Codex Dashboard. Later, run `%USERPROFILE%\plugins\codex-pulse\scripts\start_windows.cmd` to reopen it. Initial dependency installation needs internet access.
 
-## 怎么用
+## Use
 
-- **查看面板：**点击 macOS 菜单栏或 Windows 托盘里的 Codex Dashboard 图标。面板每约 2 秒刷新一次。macOS 菜单栏图标可右键查看额度摘要、刷新、复制用量摘要和检查更新；Windows 托盘右键可打开完整额度与重置卡窗口。
-- **先看什么：**面板顶部集中显示当前账号、套餐额度和重置时间。重置卡数量是额度旁的标签；macOS 点击标签可展开有效期，Windows 点击额度区域可看全部。下方“当前会话”只统计正在查看的聊天，“本机统计”汇总这台电脑上所有登录账号的 Token 用量。
-- **账号头像：**ChatGPT 登录时优先使用与当前账号匹配的本机账号名称及其首字母；名称不可用时回退到邮箱。切换账号后会重新核对身份，不沿用旧名称。
-- **在 Codex 聊天里查询：**安装插件后**新开一个本地聊天**，输入“显示我当前 Codex 的状态和 Token 用量”。也可直接调用 `get_token_usage`。云端聊天不能读取你电脑上的记录。
-- **验证插件：**运行 `codex plugin list --json` 和 `codex mcp list --json`，确认存在 `codex-pulse`，且 MCP 脚本路径指向本机插件缓存。
+- Click the menu bar or tray icon to open the dashboard. The account, quota, reset time, and reset card count appear first. The reset card tag expands to show expiry dates on macOS; click the quota area on Windows for complete details.
+- **Current chat** contains the model, status, context estimate, and token breakdown for the chat being viewed. **On this device** includes token totals from all Codex accounts used on this computer.
+- Open **Settings** from the gear button or the icon's right-click menu. The default language is English; switch to 中文 at any time, including directly from the right-click menu. Choose System, Dark, or Light appearance and select which information sections are visible. Preferences are saved locally.
+- Enable **Advanced tools** in Settings for 90-day local history, CSV export, accent colors, and execution change signals. These tools do not require a GitHub star. You can voluntarily open the repository from Settings if you want to support the project.
+- Execution change signals report observed model switches and reductions in reasoning effort for the current chat. A manual settings change can produce the same signals; they do **not** establish that answer quality declined.
+- In a **new local Codex chat**, ask “Show my Codex Dashboard status and token usage,” or call `get_token_usage`. Cloud chats cannot read your computer's records.
 
-## 更新
+## Updates
 
-Codex Dashboard 启动时及之后约每 6 小时检查一次 GitHub Release。发现新版本会在面板顶部显示 **更新并重启**；只有点击按钮后才会下载安装。也可以点面板底部的向下箭头手动检查。更新器会核对 GitHub 提供的 SHA-256，再替换桌面程序；macOS 会保留一个隐藏的旧版 App 备份。更新插件后请新开 Codex 聊天。
+The app checks GitHub Releases at startup and about every six hours. When an update is found, click **Update & restart** in the dashboard to install it. The updater verifies the Release SHA-256 before replacement. You can also check manually from the dashboard footer or the right-click menu. New Codex plugin tools appear in a new chat after updating.
 
-如果自动更新因权限或网络问题失败，可以手动更新。macOS 插件：
+Manual plugin update:
 
 ```sh
 codex plugin marketplace upgrade codex-pulse
 codex plugin add codex-pulse@codex-pulse
 ```
 
-菜单栏 App 从 [最新 Release](https://github.com/xushanpei/codex-pulse/releases/latest) 重新下载；Windows 重新解压最新源码 ZIP 并运行安装脚本。macOS App 仍未进行 Developer ID 签名或公证；自动更新仅信任本项目 GitHub Release 的 HTTPS 地址和摘要。
+For the desktop app, download the [latest Release](https://github.com/xushanpei/codex-pulse/releases/latest). The repository and plugin installation ID remain `codex-pulse` for compatibility.
 
 <details>
-<summary>数据口径与隐私</summary>
+<summary>Data and privacy</summary>
 
-- 今日、本周、本月 Token 是这台电脑上所有 Codex 登录账号产生的记录，按本机时区统计；套餐额度只属于**当前登录账号**。额度百分比不是 Token 余额或 API 账单。
-- 额度窗口按当前账号接口实际返回的内容展示，可能是 5 小时、7 天或其他周期；每个窗口都有自己的剩余比例和重置时间。额度数据约每 15 秒重新读取，**5 小时／7 天是额度周期，不是插件刷新频率**。接口未返回的月度额度不会凭空显示。
-- 若账号有额度重置卡，会显示可用张数及接口提供的有效期。这里只读展示，不会自动使用重置卡。
-- API Key 接入可显示本机 Token 统计，但没有 ChatGPT 套餐剩余百分比。API 用量和账单请在 [OpenAI 平台用量页](https://platform.openai.com/usage) 查看。
-- Token 记录通常在模型响应完成后写入，生成过程中的数字不会逐 Token 增加。缓存输入包含在输入 Token 中，推理 Token 包含在输出 Token 中。
-- “上下文剩余”按最近请求输入和模型窗口估算，并非 Codex 精确上下文计数。
-- 当前聊天优先根据 Codex Desktop 本机日志中的窗口事件识别；日志不可用时按最近活动显示。桌面日志格式变动后可能需要适配。
-- 采集器只读本机 Codex 文件和账号额度，在 `~/.codex/codex-pulse` 缓存统计数字，不保存对话正文。MCP 工具会把账号邮箱、会话标题、工作目录、状态及用量返回给当前 Codex 聊天；使用前请确认适合在该聊天中分享。
+- Today, week, month, and 90-day token numbers come from local records for all Codex accounts used on this computer, grouped in the local timezone. Plan quota belongs only to the account currently signed in. Quota percentages are neither token balances nor API bills.
+- Quota windows are displayed exactly as returned for the active account. A window may be five hours, seven days, or another period; its reset time is shown separately. Quota data is reread about every 15 seconds. An unavailable monthly quota is not fabricated.
+- Reset cards are displayed read-only and never consumed automatically. API Key sessions can show local token counts but do not have a ChatGPT plan quota; see [OpenAI API usage](https://platform.openai.com/usage) for billing.
+- Local token records usually update after a model response completes. Cached input is part of input tokens; reasoning output is part of output tokens. Context remaining is an estimate from the latest request input, not Codex's exact context count.
+- The dashboard follows the active Codex Desktop chat using local window events when available and otherwise shows recent activity. A future Desktop log format change may require an update.
+- Codex Dashboard reads local Codex files and caches counts and display preferences under `~/.codex/codex-pulse`. It does not store chat bodies. The MCP tool returns account email, chat title, working directory, status, and usage to the current Codex chat; use it only where sharing these is appropriate.
 
 </details>
 
-开发与发布说明见 [docs/RELEASING.md](docs/RELEASING.md)。许可证见 [LICENSE](LICENSE)。
+Development and release notes: [docs/RELEASING.md](docs/RELEASING.md). License: [LICENSE](LICENSE).

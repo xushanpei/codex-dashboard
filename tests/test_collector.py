@@ -12,6 +12,15 @@ import collector
 
 
 class CollectorTests(unittest.TestCase):
+    def test_upgrade_reindexes_history_for_90_day_chart(self):
+        with sqlite3.connect(":memory:") as db:
+            db.execute("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT)")
+            db.execute("INSERT INTO meta VALUES ('schema_version','5')")
+            db.execute("INSERT INTO meta VALUES ('history_scan_day','2026-09-30')")
+            collector.init(db)
+            self.assertEqual(db.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0], "8")
+            self.assertIsNone(db.execute("SELECT value FROM meta WHERE key='history_scan_day'").fetchone())
+
     def test_continued_rollout_keeps_original_session_id(self):
         with tempfile.TemporaryDirectory() as temp:
             original_root, original_cache, original_logs = collector.ROOT, collector.CACHE, collector.DESKTOP_LOG_ROOT
@@ -83,6 +92,7 @@ class CollectorTests(unittest.TestCase):
                 self.assertEqual(first["this_week"]["total_tokens"], 10)
                 self.assertEqual(first["this_month"]["total_tokens"], 10)
                 self.assertEqual(len(first["month_daily_usage"]), datetime.now().astimezone().day)
+                self.assertEqual(len(first["history_daily_usage"]), 90)
                 self.assertEqual(first["current_session"]["usage"]["total_tokens"], 10)
                 self.assertEqual(first["current_session"]["model"], "gpt-test")
                 self.assertEqual(first["current_session"]["task_status"], "running")
@@ -99,6 +109,10 @@ class CollectorTests(unittest.TestCase):
                 changed = collector.snapshot(session_id)["current_session"]
                 self.assertEqual(changed["model"], "gpt-new")
                 self.assertEqual(changed["effort"], "high")
+                self.assertEqual(collector.snapshot(session_id)["runtime_signals"]["model_change"]["to"], "gpt-new")
+                write({"timestamp": at, "type": "event_msg", "payload": {
+                    "type": "thread_settings_applied", "thread_settings": {"reasoning_effort": "low"}}})
+                self.assertEqual(collector.snapshot(session_id)["runtime_signals"]["effort_reduction"]["to"], "low")
                 self.assertEqual(changed["task_status"], "idle")
                 # Persisted picker settings take effect before any new usage event.
                 with closing(sqlite3.connect(root.parent / "state_5.sqlite")) as state:

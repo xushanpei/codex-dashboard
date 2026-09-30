@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+from preferences import read_preferences
 import uuid
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -24,6 +25,10 @@ ASSETS = {"darwin": "CodexPulse-macOS-universal.zip", "win32": "CodexPulse-sourc
 STATUS = Path.home() / ".codex/codex-pulse/update-status.json"
 MAX_ARCHIVE_BYTES = 100 * 1024 * 1024
 USER_AGENT = "Codex-Pulse-Updater"
+
+
+def ui(english, chinese):
+    return chinese if read_preferences()["language"] == "zh" else english
 
 
 class UpdateError(Exception):
@@ -170,7 +175,7 @@ def update_git_plugin(expected_version=None):
         bundled = Path("/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex")
         codex = str(bundled) if bundled.is_file() else None
     if not codex:
-        return "未找到 Codex CLI，插件未自动更新"
+        return ui("Codex CLI not found; plugin update skipped", "未找到 Codex CLI，插件未自动更新")
     try:
         environment = os.environ.copy()
         proxy = effective_proxies().get("https")
@@ -179,28 +184,32 @@ def update_git_plugin(expected_version=None):
         installed = subprocess.run([codex, "plugin", "list", "--json"], text=True,
                                    capture_output=True, timeout=12, env=environment)
         if installed.returncode:
-            return "插件列表不可用，插件未自动更新"
+            return ui("Plugin list unavailable; plugin update skipped", "插件列表不可用，插件未自动更新")
         plugins = json.loads(installed.stdout).get("installed", [])
         if not any(item.get("pluginId") == "codex-pulse@codex-pulse" for item in plugins):
             return None
         upgrade = subprocess.run([codex, "plugin", "marketplace", "upgrade", "codex-pulse", "--json"],
                                  text=True, capture_output=True, timeout=35, env=environment)
         if upgrade.returncode:
-            return "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-pulse"
+            return ui("App updated, but plugin update failed; run codex plugin marketplace upgrade codex-pulse",
+                      "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-pulse")
         if expected_version:
             marketplaces = subprocess.run([codex, "plugin", "marketplace", "list", "--json"],
                                           text=True, capture_output=True, timeout=12, env=environment)
             roots = json.loads(marketplaces.stdout).get("marketplaces", []) if marketplaces.returncode == 0 else []
             root = next((item.get("root") for item in roots if item.get("name") == "codex-pulse"), None)
             if not root or json.loads((Path(root) / "plugin.json").read_text(encoding="utf-8")).get("version") != expected_version:
-                return "桌面程序已更新，插件市场版本与发布版不同，未自动升级插件"
+                return ui("App updated, but marketplace version differs from the Release; plugin update skipped",
+                          "桌面程序已更新，插件市场版本与发布版不同，未自动升级插件")
         added = subprocess.run([codex, "plugin", "add", "codex-pulse@codex-pulse", "--json"],
                                text=True, capture_output=True, timeout=35, env=environment)
         if added.returncode or (expected_version and json.loads(added.stdout).get("version") != expected_version):
-            return "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-pulse"
+            return ui("App updated, but plugin update failed; run codex plugin marketplace upgrade codex-pulse",
+                      "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-pulse")
     except (OSError, ValueError, subprocess.SubprocessError):
-        return "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-pulse"
-    return "桌面程序和插件均已更新；插件请在新聊天使用"
+        return ui("App updated, but plugin update failed; run codex plugin marketplace upgrade codex-pulse",
+                  "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-pulse")
+    return ui("App and plugin updated; use the plugin in a new chat", "桌面程序和插件均已更新；插件请在新聊天使用")
 
 
 def install_macos(app_path, wait_pid, current_version):
@@ -247,7 +256,7 @@ def install_macos(app_path, wait_pid, current_version):
         subprocess.run(["open", str(app_path)], check=False, timeout=10)
         raise UpdateError("新版程序无法打开，已恢复旧版") from exc
     plugin_message = update_git_plugin(release["latest_version"])
-    write_status("complete", plugin_message or f"已更新到 {release['latest_version']}")
+    write_status("complete", plugin_message or ui(f"Updated to {release['latest_version']}", f"已更新到 {release['latest_version']}"))
 
 
 def install_windows(wait_pid, current_version):
@@ -276,7 +285,7 @@ def install_windows(wait_pid, current_version):
                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         if result.returncode:
             raise UpdateError("Windows 安装器未能完成更新")
-    write_status("complete", f"已更新到 {release['latest_version']}")
+    write_status("complete", ui(f"Updated to {release['latest_version']}", f"已更新到 {release['latest_version']}"))
 
 
 def main():

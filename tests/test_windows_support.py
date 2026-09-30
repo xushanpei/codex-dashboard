@@ -53,9 +53,10 @@ class WindowsSupportTests(unittest.TestCase):
                        "primary": {"usedPercent": 20, "windowDurationMins": 300, "resetsAt": 1900000000},
                        "secondary": {"usedPercent": 90, "windowDurationMins": 10080, "resetsAt": 1900100000}}},
                    "rate_limit_reset_credits": {"availableCount": 3}}
-        self.assertEqual([row[0] for row in quota_windows(account)], ["5 小时额度", "1 周额度"])
+        self.assertEqual([row[0] for row in quota_windows(account, "zh")], ["5 小时额度", "1 周额度"])
+        self.assertEqual([row[0] for row in quota_windows(account)], ["5-hour quota", "1-week quota"])
         self.assertEqual(quota_remaining(account), 80)
-        summary = quota_summary(account)
+        summary = quota_summary(account, "zh")
         self.assertIn("5 小时额度  剩余 80%", summary)
         self.assertIn("1 周额度  剩余 10%", summary)
         self.assertIn("可用 3 张", summary)
@@ -65,7 +66,7 @@ class WindowsSupportTests(unittest.TestCase):
                    "rate_limits": {"primary": {"usedPercent": 20}}}
         self.assertEqual(quota_windows(account), [])
         self.assertIsNone(quota_remaining(account))
-        self.assertIn("按 OpenAI API 用量计费", quota_summary(account))
+        self.assertIn("Billed by OpenAI API usage", quota_summary(account))
 
 
 if __name__ == "__main__":
