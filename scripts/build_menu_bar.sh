@@ -29,7 +29,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>CFBundleIdentifier</key><string>local.codex.pulse</string>
-  <key>CFBundleName</key><string>Codex Pulse</string>
+  <key>CFBundleName</key><string>Codex Dashboard</string>
+  <key>CFBundleDisplayName</key><string>Codex Dashboard</string>
   <key>CFBundleExecutable</key><string>CodexPulse</string>
   <key>CFBundleIconFile</key><string>AppIcon.icns</string>
   <key>CFBundlePackageType</key><string>APPL</string>

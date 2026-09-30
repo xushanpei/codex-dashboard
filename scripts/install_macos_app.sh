@@ -13,4 +13,4 @@ ditto "$APP" "$DEST"
 if [ "${CODEX_PULSE_NO_OPEN:-0}" != "1" ]; then
   open "$DEST"
 fi
-echo "Codex Pulse 已安装到 $DEST"
+echo "Codex Dashboard 已安装到 $DEST"

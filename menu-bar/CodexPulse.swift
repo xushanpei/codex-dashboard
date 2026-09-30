@@ -406,7 +406,7 @@ private struct DashboardView: View {
             HStack(spacing: 8) {
                 Image(nsImage: model.statusIcon ?? NSImage(contentsOf: Bundle.main.resourceURL!.appendingPathComponent("codex-mark.png")) ?? NSImage())
                     .resizable().frame(width: 26, height: 26)
-                Text("CODEX PULSE").font(.system(size: 12, weight: .heavy, design: .rounded))
+                Text("Codex Dashboard").font(.system(size: 12, weight: .heavy, design: .rounded))
                     .tracking(2.0).foregroundStyle(.white)
             }
             Spacer()
@@ -850,7 +850,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
         status.button?.image = icon
         model.statusIcon = icon
         status.button?.attributedTitle = text
-        status.button?.toolTip = remaining.map { "Codex Pulse · \(state) · 套餐额度剩余 \($0)%" } ?? "Codex Pulse · \(state)"
+        status.button?.toolTip = remaining.map { "Codex Dashboard · \(state) · 套餐额度剩余 \($0)%" } ?? "Codex Dashboard · \(state)"
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -861,7 +861,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
         status.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         let panel = PulsePanel(contentRect: NSRect(x: 0, y: 0, width: 430, height: 690),
                                styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.title = "Codex Pulse"
+        panel.title = "Codex Dashboard"
         panel.level = .popUpMenu
         panel.backgroundColor = .clear
         panel.isOpaque = false
@@ -879,7 +879,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
         if isPreview {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 430, height: 690),
                                   styleMask: [.titled, .closable], backing: .buffered, defer: false)
-            window.title = "Codex Pulse Preview"
+            window.title = "Codex Dashboard Preview"
             window.contentView = NSHostingView(rootView: DashboardView(
                 model: model, refresh: { [weak self] in self?.refreshNow() },
                 checkUpdate: { [weak self] in self?.checkForUpdates(manual: true) },
@@ -991,12 +991,12 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
     }
 
     private func showContextMenu() {
-        let menu = NSMenu(title: "Codex Pulse")
+        let menu = NSMenu(title: "Codex Dashboard")
         menu.autoenablesItems = false
         let session = model.snapshot?.currentSession
         let state = session?.taskStatus == "running" ? "运行中" :
             (session?.taskStatus == "unconfirmed" ? "待确认" : "空闲")
-        let header = NSMenuItem(title: "Codex Pulse  ·  \(state)", action: nil, keyEquivalent: "")
+        let header = NSMenuItem(title: "Codex Dashboard  ·  \(state)", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
         let account = model.snapshot?.account
@@ -1025,7 +1025,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
         addMenuAction("复制用量摘要", selector: #selector(copyUsageSummary), to: menu)
         menu.addItem(.separator())
         addMenuAction("打开 GitHub 项目", selector: #selector(openGitHub), to: menu)
-        addMenuAction("退出 Codex Pulse", selector: #selector(quitFromMenu), to: menu)
+        addMenuAction("退出 Codex Dashboard", selector: #selector(quitFromMenu), to: menu)
         status.popUpMenu(menu)
     }
 
@@ -1044,7 +1044,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
 
     @objc private func copyUsageSummary() {
         let snapshot = model.snapshot
-        var lines = ["Codex Pulse", "当前状态：\(snapshot?.currentSession?.taskStatus == "running" ? "运行中" : "空闲")"]
+        var lines = ["Codex Dashboard", "当前状态：\(snapshot?.currentSession?.taskStatus == "running" ? "运行中" : "空闲")"]
         if let modelName = snapshot?.currentSession?.model { lines.append("模型：\(modelName)") }
         if let total = snapshot?.currentSession?.usage.totalTokens { lines.append("会话累计：\(total) tokens") }
         if snapshot?.account?.authType == "apiKey" {
@@ -1140,9 +1140,9 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
                     self?.showMenuStatus(state, iconState: iconState,
                                          remaining: quota?.remaining.map { Int($0) })
                     if snapshot.account?.authType == "apiKey" {
-                        self?.status.button?.toolTip = "Codex Pulse · \(state) · API Key 接入"
+                        self?.status.button?.toolTip = "Codex Dashboard · \(state) · API Key 接入"
                     } else if let quota {
-                        self?.status.button?.toolTip = "Codex Pulse · \(state) · \(quota.title)剩余 \(Int(quota.remaining ?? 0))%"
+                        self?.status.button?.toolTip = "Codex Dashboard · \(state) · \(quota.title)剩余 \(Int(quota.remaining ?? 0))%"
                     }
                 } else {
                     self?.model.error = readError ?? "未知错误"

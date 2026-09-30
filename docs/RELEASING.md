@@ -1,4 +1,4 @@
-# 发布 Codex Pulse
+# 发布 Codex Dashboard
 
 项目通过 GitHub 仓库 marketplace 分发 Codex 插件，通过 GitHub Releases 分发 macOS App 和完整源码。公开插件目录是另一套审核流程；本项目读取每位用户电脑上的 Codex 数据，不使用远程 MCP 服务。
 

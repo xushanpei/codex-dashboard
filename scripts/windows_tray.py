@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Windows tray dashboard for the local Codex Pulse collector."""
+"""Windows tray dashboard for the local Codex Dashboard collector."""
 from __future__ import annotations
 
 import json
@@ -152,7 +152,7 @@ class Dashboard:
     def __init__(self, preview=False):
         self.preview = preview
         self.root = tk.Tk()
-        self.root.title("Codex Pulse")
+        self.root.title("Codex Dashboard")
         self.root.configure(bg=BG)
         self.root.resizable(False, False)
         self.root.geometry(f"{WIDTH}x{HEIGHT}")
@@ -373,7 +373,7 @@ class Dashboard:
         remaining = quota_remaining((self.snapshot or {}).get("account"))
         quota = ("API Key 接入" if ((self.snapshot or {}).get("account") or {}).get("auth_type") == "apiKey"
                  else ("额度待更新" if remaining is None else f"额度剩余 {remaining:.0f}%"))
-        self.icon.title = f"Codex Pulse · {status_visual(session)[0]} · {quota}"
+        self.icon.title = f"Codex Dashboard · {status_visual(session)[0]} · {quota}"
         if self.update_info:
             self.icon.title += f" · 新版 {self.update_info['latest_version']}"
 
@@ -394,7 +394,7 @@ class Dashboard:
             c.create_oval(22, 22, 46, 46, fill=CYAN, outline=VIOLET, width=3)
         if current.get("task_status") in ("running", "unconfirmed"):
             c.create_oval(45, 43, 51, 49, fill=status_color, outline="")
-        self.label(55, 25, "CODEX PULSE", 13, WHITE, "bold")
+        self.label(55, 25, "Codex Dashboard", 13, WHITE, "bold")
         if self.update_info:
             self.rounded(236, 17, 371, 47, 14, "#193845", "#276071")
             self.label(303, 32, f"更新至 {self.update_info['latest_version']}", 10, CYAN, "bold", "center")
@@ -511,7 +511,7 @@ class Dashboard:
 
     def show_quota_details(self):
         detail = tk.Toplevel(self.root)
-        detail.title("Codex Pulse · 完整额度")
+        detail.title("Codex Dashboard · 完整额度")
         detail.configure(bg=BG)
         left, top, right, bottom = self.work_area()
         detail.geometry(f"430x420+{max(left, right - 444)}+{max(top, bottom - 432)}")
@@ -534,9 +534,9 @@ class Dashboard:
             import pystray
 
             self.icon = pystray.Icon(
-                "codex-pulse", icon_image("idle"), "Codex Pulse",
+                "codex-pulse", icon_image("idle"), "Codex Dashboard",
                 menu=pystray.Menu(
-                    pystray.MenuItem("打开 Codex Pulse", lambda _icon, _item: self.events.put(("show", None)), default=True),
+                    pystray.MenuItem("打开 Codex Dashboard", lambda _icon, _item: self.events.put(("show", None)), default=True),
                     pystray.MenuItem("查看完整额度与重置卡", lambda _icon, _item: self.events.put(("quota", None))),
                     pystray.MenuItem("刷新", lambda _icon, _item: self.events.put(("refresh", None))),
                     pystray.MenuItem("检查更新", lambda _icon, _item: self.events.put(("check_update", None))),

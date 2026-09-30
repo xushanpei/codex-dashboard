@@ -39,5 +39,5 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             dist/CodexPulse-macOS-universal.zip \
             dist/CodexPulse-source.zip \
-            --title "Codex Pulse $GITHUB_REF_NAME" \
+            --title "Codex Dashboard $GITHUB_REF_NAME" \
             --generate-notes

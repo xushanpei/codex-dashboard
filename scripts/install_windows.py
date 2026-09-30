@@ -35,7 +35,7 @@ def install(source, home, run_commands=True):
     destination = home / "plugins/codex-pulse"
     marketplace = home / ".agents/plugins/marketplace.json"
     if not (source / ".codex-plugin/plugin.json").is_file():
-        raise FileNotFoundError("找不到 Codex Pulse 插件清单")
+        raise FileNotFoundError("找不到 Codex Dashboard 插件清单")
     if source.resolve() != destination.resolve():
         shutil.copytree(source, destination, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns("dist", ".venv", ".git", ".github", ".agents",
@@ -81,5 +81,5 @@ if __name__ == "__main__":
     try:
         path = install(SOURCE, Path.home())
     except (OSError, ValueError, subprocess.CalledProcessError) as exc:
-        raise SystemExit(f"Codex Pulse 安装失败：{exc}") from exc
+        raise SystemExit(f"Codex Dashboard 安装失败：{exc}") from exc
     print(f"已安装并启动：{path}")

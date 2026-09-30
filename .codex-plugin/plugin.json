@@ -6,14 +6,14 @@
     "name": "xushanpei"
   },
   "interface": {
-    "displayName": "Codex Pulse",
-    "shortDescription": "Codex status at a glance",
-    "longDescription": "See Codex session activity, quota, and token usage in a macOS menu bar or Windows tray panel.",
+    "displayName": "Codex Dashboard",
+    "shortDescription": "一眼看清 Codex 账号与额度",
+    "longDescription": "在 macOS 菜单栏或 Windows 托盘查看账号、额度、会话与 Token 用量。",
     "developerName": "xushanpei",
     "category": "Productivity",
     "capabilities": [],
     "logo": "./assets/app-icon.png",
-    "defaultPrompt": "Show my Codex Pulse status."
+    "defaultPrompt": "显示 Codex Dashboard 状态。"
   },
   "mcpServers": "./.mcp.json",
   "skills": "./skills/"

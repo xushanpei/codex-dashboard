@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check GitHub releases and install a verified Codex Pulse desktop update."""
+"""Check GitHub releases and install a verified Codex Dashboard update."""
 from __future__ import annotations
 
 import argparse
@@ -73,7 +73,7 @@ def latest_release(platform=None, opener=None):
     if not re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest):
         raise UpdateError("安装包缺少有效的 SHA-256 校验值")
     if not url.startswith(f"https://github.com/{REPO}/releases/download/{tag}/"):
-        raise UpdateError("安装包下载地址不属于 Codex Pulse Release")
+        raise UpdateError("安装包下载地址不属于 Codex Dashboard Release")
     return {"latest_version": tag.lstrip("v"), "release_url": payload.get("html_url"),
             "asset_url": url, "digest": digest.lower(), "size": int(asset.get("size") or 0)}
 

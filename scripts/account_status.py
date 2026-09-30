@@ -98,7 +98,7 @@ def _query():
                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     requests = [
         {"method": "initialize", "id": 1, "params": {"clientInfo": {
-            "name": "codex_pulse", "title": "Codex Pulse", "version": "0.1.0"}}},
+            "name": "codex_pulse", "title": "Codex Dashboard", "version": "0.1.0"}}},
         {"method": "initialized", "params": {}},
         {"method": "account/read", "id": 2, "params": {"refreshToken": False}},
         {"method": "account/rateLimits/read", "id": 3},

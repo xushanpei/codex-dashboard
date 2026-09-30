@@ -1,13 +1,13 @@
 ---
 name: install-codex-pulse
-description: Install, update, or repair Codex Pulse on a local Codex host from xushanpei/codex-pulse, including its plugin and macOS menu bar or Windows tray app. Use for Codex Pulse setup requests, not other plugins.
+description: Install, update, or repair Codex Dashboard (formerly Codex Pulse) on a local Codex host from xushanpei/codex-pulse, including its plugin and macOS menu bar or Windows tray app. Use for Codex Dashboard setup requests, not other plugins.
 ---
 
-# Install Codex Pulse
+# Install Codex Dashboard
 
-Use the [project README](https://github.com/xushanpei/codex-pulse#readme) as the version-specific source of installation commands. Install both the Codex plugin and desktop app when the user asks to install Codex Pulse without narrowing the scope.
+Use the [project README](https://github.com/xushanpei/codex-pulse#readme) as the version-specific source of installation commands. Install both the Codex plugin and desktop app when the user asks to install Codex Dashboard without narrowing the scope.
 
-1. Identify macOS or Windows and check for an existing Codex Pulse installation. Preserve unrelated plugins, marketplaces, credentials, and proxy settings. Use only the `xushanpei/codex-pulse` repository and its GitHub Release assets.
+1. Identify macOS or Windows and check for an existing Codex Dashboard installation. Preserve unrelated plugins, marketplaces, credentials, and proxy settings. Use only the `xushanpei/codex-pulse` repository and its GitHub Release assets.
 2. On macOS, ensure `codex` and `python3` are available. Add the GitHub marketplace if absent, otherwise upgrade it; install `codex-pulse@codex-pulse`. For the menu bar app, prefer the latest macOS Release ZIP when the user wants a direct download. If the unsigned app cannot open or the user prefers to build locally, clone the repository and run `sh scripts/install_macos_app.sh` with a macOS SDK/Xcode toolchain. Do not disable or bypass macOS security protections.
 3. On Windows, ensure `codex` and `py -3` are available. Download the latest source ZIP or clone the repository, then run `py -3 scripts\install_windows.py` from its root. The installer creates a virtual environment, installs tray dependencies, registers the local plugin, and starts the tray app. It needs network access for Python packages.
 4. Verify the installed plugin with `codex plugin list --json` and its MCP command with `codex mcp list --json`. Check that the MCP script path exists on this machine. Check that the menu bar or tray process starts and that the panel reads the current state. Start a new Codex chat before testing the bundled tool or this skill.

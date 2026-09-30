@@ -14,14 +14,14 @@
   "extensions": {
     "com.openai": {
       "interface": {
-        "displayName": "Codex Pulse",
-        "shortDescription": "Codex status at a glance",
-        "longDescription": "See local Codex chat activity, quota, context remaining, and token trends.",
+        "displayName": "Codex Dashboard",
+        "shortDescription": "一眼看清 Codex 账号与额度",
+        "longDescription": "查看当前账号、套餐额度、会话状态与本机 Token 用量。",
         "developerName": "xushanpei",
         "category": "Productivity",
         "capabilities": ["Read"],
         "logo": "./assets/app-icon.png",
-        "defaultPrompt": "Show my Codex Pulse status."
+        "defaultPrompt": "显示 Codex Dashboard 状态。"
       }
     }
   }

@@ -1,4 +1,4 @@
-# Codex Pulse
+# Codex Dashboard
 
 在 macOS 菜单栏或 Windows 系统托盘查看 Codex 当前聊天、模型、套餐余量、上下文余量和 Token 用量。另附本地 Codex 插件工具 `get_token_usage`。
 
@@ -9,7 +9,7 @@
 把下面这段话发给**本地 Codex**。它会按系统选择步骤，并在安装后检查插件和桌面程序：
 
 ```text
-请安装 Codex Pulse：https://github.com/xushanpei/codex-pulse
+请安装 Codex Dashboard（仓库名 codex-pulse）：https://github.com/xushanpei/codex-pulse
 先阅读仓库里的 skills/install-codex-pulse/SKILL.md，再按我的系统安装 Codex 插件和菜单栏／托盘程序，并验证两者都能运行。保留我其他插件和代理设置；回复中不要展示账号邮箱或完整会话内容。
 ```
 
@@ -28,7 +28,7 @@
    codex plugin add codex-pulse@codex-pulse
    ```
 
-2. 下载 [macOS App](https://github.com/xushanpei/codex-pulse/releases/latest/download/CodexPulse-macOS-universal.zip)，解压后将 **Codex Pulse.app** 放入“应用程序”并打开。菜单栏会出现图标，点击即可查看面板。
+2. 下载 [macOS App](https://github.com/xushanpei/codex-pulse/releases/latest/download/CodexPulse-macOS-universal.zip)，解压后将 **Codex Pulse.app** 放入“应用程序”并打开。界面显示名为 **Codex Dashboard**；保留原安装包文件名以兼容自动更新。菜单栏会出现图标，点击即可查看面板。
 
 App 尚未进行 Apple Developer ID 签名和公证。如果系统阻止打开，可从源码在本机编译；这需要 Xcode 工具链：
 
@@ -49,11 +49,11 @@ sh scripts/install_macos_app.sh
    py -3 scripts\install_windows.py
    ```
 
-脚本会安装托盘依赖、登记本机插件并启动 Codex Pulse。以后双击 `%USERPROFILE%\plugins\codex-pulse\scripts\start_windows.cmd` 即可启动；右键托盘图标可退出。首次安装依赖需要联网。
+脚本会安装托盘依赖、登记本机插件并启动 Codex Dashboard。以后双击 `%USERPROFILE%\plugins\codex-pulse\scripts\start_windows.cmd` 即可启动；右键托盘图标可退出。首次安装依赖需要联网。
 
 ## 怎么用
 
-- **查看面板：**点击 macOS 菜单栏或 Windows 托盘里的 Codex Pulse 图标。面板每约 2 秒刷新一次。macOS 菜单栏图标可右键查看额度摘要、刷新、复制用量摘要和检查更新；Windows 托盘右键可打开完整额度与重置卡窗口。
+- **查看面板：**点击 macOS 菜单栏或 Windows 托盘里的 Codex Dashboard 图标。面板每约 2 秒刷新一次。macOS 菜单栏图标可右键查看额度摘要、刷新、复制用量摘要和检查更新；Windows 托盘右键可打开完整额度与重置卡窗口。
 - **先看什么：**面板顶部集中显示当前账号、套餐额度和重置时间。重置卡数量是额度旁的标签；macOS 点击标签可展开有效期，Windows 点击额度区域可看全部。下方“当前会话”只统计正在查看的聊天，“本机统计”汇总这台电脑上所有登录账号的 Token 用量。
 - **账号头像：**ChatGPT 登录时优先使用与当前账号匹配的本机账号名称及其首字母；名称不可用时回退到邮箱。切换账号后会重新核对身份，不沿用旧名称。
 - **在 Codex 聊天里查询：**安装插件后**新开一个本地聊天**，输入“显示我当前 Codex 的状态和 Token 用量”。也可直接调用 `get_token_usage`。云端聊天不能读取你电脑上的记录。
@@ -61,7 +61,7 @@ sh scripts/install_macos_app.sh
 
 ## 更新
 
-Codex Pulse 启动时及之后约每 6 小时检查一次 GitHub Release。发现新版本会在面板顶部显示 **更新并重启**；只有点击按钮后才会下载安装。也可以点面板底部的向下箭头手动检查。更新器会核对 GitHub 提供的 SHA-256，再替换桌面程序；macOS 会保留一个隐藏的旧版 App 备份。更新插件后请新开 Codex 聊天。
+Codex Dashboard 启动时及之后约每 6 小时检查一次 GitHub Release。发现新版本会在面板顶部显示 **更新并重启**；只有点击按钮后才会下载安装。也可以点面板底部的向下箭头手动检查。更新器会核对 GitHub 提供的 SHA-256，再替换桌面程序；macOS 会保留一个隐藏的旧版 App 备份。更新插件后请新开 Codex 聊天。
 
 如果自动更新因权限或网络问题失败，可以手动更新。macOS 插件：
 
