@@ -38,6 +38,7 @@ class WindowsSupportTests(unittest.TestCase):
             self.assertEqual(portable["command"], "py")
             self.assertEqual(portable["args"], ["-3", "${PLUGIN_ROOT}/scripts/mcp_server.py"])
             self.assertTrue((installed / "scripts/windows_tray.py").exists())
+            self.assertTrue((installed / "scripts/updater.py").exists())
             self.assertFalse((installed / "dist").exists())
 
     def test_stale_account_never_shows_old_quota(self):

@@ -14,6 +14,7 @@
 ## 后续版本
 
 1. 同步更新根目录 `plugin.json`、兼容清单 `.codex-plugin/plugin.json` 与 `scripts/mcp_server.py` 的版本号。
+   这也是菜单栏 App 的 `CFBundleShortVersionString` 和 `CFBundleVersion`；自动更新要求 Release 标签与这两个版本字段一致，并保持 macOS App ZIP、源码 ZIP 的文件名不变。
 2. 运行 `python3 -m unittest discover -s tests -v` 和 `sh scripts/build_menu_bar.sh`。
 3. 更新 README 中的行为与平台限制，提交代码。
 4. 创建并推送对应的 `vX.Y.Z` 标签，等待 Release workflow 完成。

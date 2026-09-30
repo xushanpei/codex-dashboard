@@ -113,6 +113,12 @@ private struct Snapshot: Decodable {
     let account: Account?
 }
 
+private struct UpdateInfo: Decodable {
+    let available: Bool
+    let latestVersion: String
+    let releaseUrl: String
+}
+
 private struct SessionChoice: Decodable, Identifiable {
     let id: String
     let title: String
@@ -122,6 +128,8 @@ private final class DashboardModel: ObservableObject {
     @Published var snapshot: Snapshot?
     @Published var error: String?
     @Published var statusIcon: NSImage?
+    @Published var updateInfo: UpdateInfo?
+    @Published var updateMessage: String?
 }
 
 private final class StatusIconRenderer {
@@ -274,6 +282,8 @@ private struct DashboardView: View {
     @State private var hoveredDay: DailyPoint?
     private let horizontalInset: CGFloat = 20
     let refresh: () -> Void
+    let checkUpdate: () -> Void
+    let installUpdate: () -> Void
     let quit: () -> Void
 
     private var current: Session? { model.snapshot?.currentSession }
@@ -299,6 +309,7 @@ private struct DashboardView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         header
+                        if let update = model.updateInfo, update.available { updateCard(update) }
                         accountCard
                         hero
                         if let snapshot = model.snapshot {
@@ -345,6 +356,29 @@ private struct DashboardView: View {
                     .tracking(2.0).foregroundStyle(.white)
             }
             Spacer()
+        }
+    }
+
+    private func updateCard(_ update: UpdateInfo) -> some View {
+        GlassCard {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 20)).foregroundStyle(Theme.lime)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("发现新版本 \(update.latestVersion)")
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                    Text("点击后更新，完成时会重新启动")
+                        .font(.system(size: 10)).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                Button(action: installUpdate) {
+                    Text("更新并重启").font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.cyan)
+                        .padding(.horizontal, 10).padding(.vertical, 7)
+                        .background(Theme.cyan.opacity(0.13), in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -620,9 +654,11 @@ private struct DashboardView: View {
 
     private var footer: some View {
         HStack {
-            Text(model.error == nil ? (model.snapshot?.selectionMode == "desktop_view" ? "跟随 Codex 窗口 · 约每 2 秒刷新" : "按最近活动显示 · 约每 2 秒刷新") : "读取异常：\(model.error ?? "")")
+            Text(model.updateMessage ?? (model.error == nil ? (model.snapshot?.selectionMode == "desktop_view" ? "跟随 Codex 窗口 · 约每 2 秒刷新" : "按最近活动显示 · 约每 2 秒刷新") : "读取异常：\(model.error ?? "")"))
                 .lineLimit(1).foregroundStyle(Theme.muted)
             Spacer()
+            Button(action: checkUpdate) { Image(systemName: "arrow.down.circle") }
+                .buttonStyle(.plain).help("检查更新")
             Button(action: refresh) { Image(systemName: "arrow.clockwise") }
                 .buttonStyle(.plain).help("立即刷新")
             Button(action: quit) { Image(systemName: "power") }
@@ -646,7 +682,11 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
     private let model = DashboardModel()
     private let logo = StatusIconRenderer()
     private var inFlight = false
+    private var updateCheckInFlight = false
     private var previewWindow: NSWindow?
+    private var currentVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
+    }
     private lazy var pythonExecutable: URL? = {
         let environment = ProcessInfo.processInfo.environment
         #if arch(arm64)
@@ -701,6 +741,8 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
         panel.collectionBehavior = [.transient, .moveToActiveSpace, .fullScreenAuxiliary]
         panel.contentView = NSHostingView(rootView: DashboardView(
             model: model, refresh: { [weak self] in self?.refreshNow() },
+            checkUpdate: { [weak self] in self?.checkForUpdates(manual: true) },
+            installUpdate: { [weak self] in self?.installUpdate() },
             quit: { NSApplication.shared.terminate(nil) }))
         self.panel = panel
         let isPreview = ProcessInfo.processInfo.environment["CODEX_PULSE_PREVIEW"] == "1"
@@ -710,6 +752,8 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
             window.title = "Codex Pulse Preview"
             window.contentView = NSHostingView(rootView: DashboardView(
                 model: model, refresh: { [weak self] in self?.refreshNow() },
+                checkUpdate: { [weak self] in self?.checkForUpdates(manual: true) },
+                installUpdate: { [weak self] in self?.installUpdate() },
                 quit: { NSApplication.shared.terminate(nil) }))
             window.center()
             window.makeKeyAndOrderFront(nil)
@@ -717,12 +761,93 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
             previewWindow = window
         }
         refreshNow()
+        readUpdateStatus()
+        if isPreview && ProcessInfo.processInfo.environment["CODEX_PULSE_PREVIEW_UPDATE"] == "1" {
+            model.updateInfo = UpdateInfo(available: true, latestVersion: "0.1.5",
+                                          releaseUrl: "https://github.com/xushanpei/codex-pulse/releases")
+        } else {
+            checkForUpdates()
+        }
         if ProcessInfo.processInfo.environment["CODEX_PULSE_SHOW_PANEL"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.showPanel() }
         }
         if !isPreview {
             let timer = Timer(timeInterval: 2, target: self, selector: #selector(refreshNow), userInfo: nil, repeats: true)
             RunLoop.main.add(timer, forMode: .common)
+            let updateTimer = Timer(timeInterval: 6 * 60 * 60, target: self,
+                                    selector: #selector(checkUpdatesTimer), userInfo: nil, repeats: true)
+            RunLoop.main.add(updateTimer, forMode: .common)
+        }
+    }
+
+    private func readUpdateStatus() {
+        let path = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".codex/codex-pulse/update-status.json")
+        if let data = try? Data(contentsOf: path),
+           let value = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+           let message = value["message"] {
+            model.updateMessage = message
+            try? FileManager.default.removeItem(at: path)
+        }
+    }
+
+    @objc private func checkUpdatesTimer() { checkForUpdates() }
+
+    private func checkForUpdates(manual: Bool = false) {
+        guard !updateCheckInFlight else { return }
+        guard let pythonExecutable else {
+            if manual { model.updateMessage = "未找到 Python 3，无法检查更新" }
+            return
+        }
+        updateCheckInFlight = true
+        if manual { model.updateMessage = "正在检查更新…" }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let script = Bundle.main.resourceURL!.appendingPathComponent("updater.py")
+            let process = Process()
+            process.executableURL = pythonExecutable
+            process.arguments = [script.path, "--check", "--current-version", self?.currentVersion ?? "0.0.0"]
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+            var update: UpdateInfo?
+            var readError: String?
+            do {
+                try process.run()
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+                if process.terminationStatus != 0 { throw NSError(domain: "CodexPulseUpdate", code: Int(process.terminationStatus)) }
+                let decoder = JSONDecoder()
+                decoder.keyDecodingStrategy = .convertFromSnakeCase
+                update = try decoder.decode(UpdateInfo.self, from: data)
+            } catch { readError = error.localizedDescription }
+            DispatchQueue.main.async {
+                self?.model.updateInfo = update?.available == true ? update : nil
+                if manual {
+                    self?.model.updateMessage = readError == nil ?
+                        (update?.available == true ? "发现新版本 \(update?.latestVersion ?? "")" : "已是最新版本") :
+                        "检查更新失败，请稍后重试"
+                }
+                self?.updateCheckInFlight = false
+            }
+        }
+    }
+
+    private func installUpdate() {
+        guard model.updateInfo?.available == true, let pythonExecutable else { return }
+        let script = Bundle.main.resourceURL!.appendingPathComponent("updater.py")
+        let process = Process()
+        process.executableURL = pythonExecutable
+        process.arguments = [script.path, "--install-macos", "--current-version", currentVersion,
+                             "--app-path", Bundle.main.bundlePath, "--wait-pid",
+                             String(ProcessInfo.processInfo.processIdentifier)]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do {
+            model.updateMessage = "正在更新，完成后会重新启动…"
+            try process.run()
+            NSApplication.shared.terminate(nil)
+        } catch {
+            model.updateMessage = "无法启动更新程序：\(error.localizedDescription)"
         }
     }
 
@@ -766,6 +891,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
     }
 
     @objc private func refreshNow() {
+        readUpdateStatus()
         guard !inFlight else { return }
         guard let pythonExecutable else {
             model.error = "未找到 Python 3，请安装 Python 3 或 Xcode 命令行工具"

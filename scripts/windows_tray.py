@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import shutil
 import subprocess
 import sys
 import threading
@@ -15,6 +16,8 @@ from pathlib import Path
 BASE = Path(__file__).resolve().parents[1]
 COLLECTOR = BASE / "scripts/collector.py"
 MARK = BASE / "assets/codex-mark.png"
+UPDATER = BASE / "scripts/updater.py"
+VERSION = json.loads((BASE / "plugin.json").read_text(encoding="utf-8"))["version"]
 WIDTH, HEIGHT = 430, 690
 BG, CARD, BORDER = "#091421", "#121d2d", "#273647"
 WHITE, MUTED, CYAN, VIOLET, LIME, ORANGE, RED = (
@@ -116,6 +119,9 @@ class Dashboard:
         self.chart_hits = []
         self.refreshing = False
         self.icon = None
+        self.update_info = None
+        self.update_message = None
+        self.checking_update = False
         self.canvas.bind("<Motion>", self.on_motion)
         self.canvas.bind("<Button-1>", self.on_click)
         self.root.bind("<Escape>", lambda _: self.hide())
@@ -124,7 +130,9 @@ class Dashboard:
         self.render()
         self.root.after(100, self.poll)
         self.refresh()
+        self.check_update()
         self.root.after(2000, self.periodic_refresh)
+        self.root.after(6 * 60 * 60 * 1000, self.periodic_update_check)
 
     def rounded(self, x1, y1, x2, y2, radius=16, fill=CARD, outline=BORDER):
         self.canvas.create_polygon(
@@ -197,8 +205,65 @@ class Dashboard:
         threading.Thread(target=collect, daemon=True).start()
 
     def periodic_refresh(self):
+        self.read_update_status()
         self.refresh()
         self.root.after(2000, self.periodic_refresh)
+
+    def periodic_update_check(self):
+        self.check_update()
+        self.root.after(6 * 60 * 60 * 1000, self.periodic_update_check)
+
+    def read_update_status(self):
+        path = Path.home() / ".codex/codex-pulse/update-status.json"
+        try:
+            message = json.loads(path.read_text(encoding="utf-8")).get("message")
+            path.unlink()
+            if message:
+                self.update_message = message
+                self.render()
+        except (OSError, ValueError):
+            pass
+
+    def check_update(self, manual=False):
+        if self.checking_update:
+            return
+        self.checking_update = True
+        if manual:
+            self.update_message = "正在检查更新…"
+            self.render()
+
+        def check():
+            try:
+                run = subprocess.run([sys.executable, str(UPDATER), "--check", "--current-version", VERSION],
+                                     text=True, encoding="utf-8", capture_output=True, timeout=25,
+                                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                                     env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+                if run.returncode:
+                    raise RuntimeError(run.stderr.strip() or "检查更新失败")
+                self.events.put(("update", (json.loads(run.stdout), manual)))
+            except (OSError, ValueError, subprocess.SubprocessError, RuntimeError) as exc:
+                self.events.put(("update_error", (str(exc), manual)))
+
+        threading.Thread(target=check, daemon=True).start()
+
+    def install_update(self):
+        if not self.update_info or self.preview:
+            return
+        launcher = shutil.which("py")
+        if not launcher:
+            self.update_message = "未找到 Python 启动器 py"
+            self.render()
+            return
+        try:
+            subprocess.Popen([launcher, "-3", str(UPDATER), "--install-windows",
+                              "--current-version", VERSION, "--wait-pid", str(os.getpid())],
+                             cwd=BASE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except OSError as exc:
+            self.update_message = f"无法启动更新：{exc}"
+            self.render()
+            return
+        self.quit()
 
     def poll(self):
         try:
@@ -208,9 +273,26 @@ class Dashboard:
                     self.show()
                 elif kind == "refresh":
                     self.refresh()
+                elif kind == "check_update":
+                    self.check_update(manual=True)
                 elif kind == "quit":
                     self.quit()
                     return
+                elif kind == "update":
+                    info, manual = data
+                    self.checking_update = False
+                    self.update_info = info if info.get("available") else None
+                    if manual:
+                        self.update_message = (f"发现新版本 {info['latest_version']}" if self.update_info
+                                               else "已是最新版本")
+                    self.update_tray()
+                    self.render()
+                elif kind == "update_error":
+                    _, manual = data
+                    self.checking_update = False
+                    if manual:
+                        self.update_message = "检查更新失败，请稍后重试"
+                        self.render()
                 else:
                     self.refreshing = False
                     if kind == "snapshot":
@@ -233,6 +315,8 @@ class Dashboard:
         remaining = quota_remaining((self.snapshot or {}).get("account"))
         quota = "额度待更新" if remaining is None else f"额度剩余 {remaining:.0f}%"
         self.icon.title = f"Codex Pulse · {status_visual(session)[0]} · {quota}"
+        if self.update_info:
+            self.icon.title += f" · 新版 {self.update_info['latest_version']}"
 
     def render(self):
         c = self.canvas
@@ -252,6 +336,9 @@ class Dashboard:
         if current.get("task_status") in ("running", "unconfirmed"):
             c.create_oval(45, 43, 51, 49, fill=status_color, outline="")
         self.label(55, 25, "CODEX PULSE", 13, WHITE, "bold")
+        if self.update_info:
+            self.rounded(236, 17, 371, 47, 14, "#193845", "#276071")
+            self.label(303, 32, f"更新至 {self.update_info['latest_version']}", 10, CYAN, "bold", "center")
         self.label(404, 26, "×", 17, MUTED, anchor="ne")
         self.card(62, 129)
         email = account.get("email") or "Codex 账号信息加载中"
@@ -330,7 +417,8 @@ class Dashboard:
                 self.chart_hits.append((x, x + slot, point["date"]))
                 if len(points) <= 7:
                     self.label(x + slot / 2, 640, point["date"][-2:], 8, MUTED, anchor="n")
-        self.label(23, 669, self.error or "每 2 秒刷新 · 关闭面板后继续运行", 9, RED if self.error else MUTED)
+        footer = self.error or self.update_message or "每 2 秒刷新 · 关闭面板后继续运行"
+        self.label(23, 669, footer, 9, RED if self.error else MUTED)
 
     def on_motion(self, event):
         date = next((date for left, right, date in self.chart_hits
@@ -340,7 +428,9 @@ class Dashboard:
             self.render()
 
     def on_click(self, event):
-        if event.y < 54 and event.x > 370:
+        if 17 <= event.y <= 50 and 236 <= event.x <= 371 and self.update_info:
+            self.install_update()
+        elif event.y < 54 and event.x > 370:
             self.hide()
         elif 550 <= event.y <= 578 and event.x >= 300:
             self.trend_month = event.x >= 359
@@ -358,6 +448,7 @@ class Dashboard:
                 menu=pystray.Menu(
                     pystray.MenuItem("打开 Codex Pulse", lambda _icon, _item: self.events.put(("show", None)), default=True),
                     pystray.MenuItem("刷新", lambda _icon, _item: self.events.put(("refresh", None))),
+                    pystray.MenuItem("检查更新", lambda _icon, _item: self.events.put(("check_update", None))),
                     pystray.MenuItem("退出", lambda _icon, _item: self.events.put(("quit", None))),
                 ))
             threading.Thread(target=self.icon.run, daemon=True).start()

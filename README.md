@@ -59,14 +59,16 @@ sh scripts/install_macos_app.sh
 
 ## 更新
 
-macOS 插件：
+Codex Pulse 启动时及之后约每 6 小时检查一次 GitHub Release。发现新版本会在面板顶部显示 **更新并重启**；只有点击按钮后才会下载安装。也可以点面板底部的向下箭头手动检查。更新器会核对 GitHub 提供的 SHA-256，再替换桌面程序；macOS 会保留一个隐藏的旧版 App 备份。更新插件后请新开 Codex 聊天。
+
+如果自动更新因权限或网络问题失败，可以手动更新。macOS 插件：
 
 ```sh
 codex plugin marketplace upgrade codex-pulse
 codex plugin add codex-pulse@codex-pulse
 ```
 
-菜单栏 App 从 [最新 Release](https://github.com/xushanpei/codex-pulse/releases/latest) 重新下载；Windows 重新解压最新源码 ZIP 并运行安装脚本。更新插件后新开聊天。
+菜单栏 App 从 [最新 Release](https://github.com/xushanpei/codex-pulse/releases/latest) 重新下载；Windows 重新解压最新源码 ZIP 并运行安装脚本。macOS App 仍未进行 Developer ID 签名或公证；自动更新仅信任本项目 GitHub Release 的 HTTPS 地址和摘要。
 
 <details>
 <summary>数据口径与隐私</summary>
