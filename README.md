@@ -11,10 +11,10 @@ Codex Dashboard shows your current Codex account, plan quota, reset cards, chat 
 Send this to **local Codex**:
 
 ```text
-Install Codex Dashboard from https://github.com/xushanpei/codex-pulse. Read skills/install-codex-pulse/SKILL.md first. Install the Codex plugin and the menu bar or tray app for my operating system, then verify both. Preserve my other plugins and proxy settings. Do not print my account email or full chat content.
+Install Codex Dashboard from https://github.com/xushanpei/codex-dashboard. Read skills/install-codex-dashboard/SKILL.md first. Install the Codex plugin and the menu bar or tray app for my operating system, then verify both. Preserve my other plugins and proxy settings. Do not print my account email or full chat content.
 ```
 
-The bundled `$install-codex-pulse` skill becomes available in **new local chats** after installation.
+The bundled `$install-codex-dashboard` skill becomes available in **new local chats** after installation.
 
 ## Install manually
 
@@ -25,17 +25,17 @@ Requires macOS 13+, Python 3, and Codex CLI. Both Apple silicon and Intel Macs a
 1. Install the Codex plugin:
 
    ```sh
-   codex plugin marketplace add xushanpei/codex-pulse
-   codex plugin add codex-pulse@codex-pulse
+   codex plugin marketplace add xushanpei/codex-dashboard
+   codex plugin add codex-dashboard@codex-dashboard
    ```
 
-2. Download the [macOS app](https://github.com/xushanpei/codex-pulse/releases/latest/download/CodexPulse-macOS-universal.zip), unzip it, move **Codex Pulse.app** to Applications, and open it. The displayed app name is **Codex Dashboard**. The older bundle filename is kept for update compatibility.
+2. Download the [macOS app](https://github.com/xushanpei/codex-dashboard/releases/latest/download/CodexDashboard-macOS-universal.zip), unzip it, move **Codex Dashboard.app** to Applications, and open it.
 
 The app is not signed or notarized with Apple Developer ID. If macOS blocks it, build and install it locally with an Xcode toolchain:
 
 ```sh
-git clone https://github.com/xushanpei/codex-pulse.git
-cd codex-pulse
+git clone https://github.com/xushanpei/codex-dashboard.git
+cd codex-dashboard
 sh scripts/install_macos_app.sh
 ```
 
@@ -43,14 +43,14 @@ sh scripts/install_macos_app.sh
 
 Requires Windows 10/11, Python 3.9+ with Tkinter and the `py` launcher, and Codex CLI. The Windows tray UI has CI coverage but has not been verified on a physical Windows machine.
 
-1. Download and extract the [complete source ZIP](https://github.com/xushanpei/codex-pulse/releases/latest/download/CodexPulse-source.zip).
+1. Download and extract the [complete source ZIP](https://github.com/xushanpei/codex-dashboard/releases/latest/download/CodexDashboard-source.zip).
 2. In the extracted folder, run:
 
    ```bat
    py -3 scripts\install_windows.py
    ```
 
-The installer sets up tray dependencies, registers the local plugin, and starts Codex Dashboard. Later, run `%USERPROFILE%\plugins\codex-pulse\scripts\start_windows.cmd` to reopen it. Initial dependency installation needs internet access.
+The installer sets up tray dependencies, registers the local plugin, and starts Codex Dashboard. Later, run `%USERPROFILE%\plugins\codex-dashboard\scripts\start_windows.cmd` to reopen it. Initial dependency installation needs internet access.
 
 ## Use
 
@@ -68,11 +68,11 @@ The app checks GitHub Releases at startup and about every six hours. When an upd
 Manual plugin update:
 
 ```sh
-codex plugin marketplace upgrade codex-pulse
-codex plugin add codex-pulse@codex-pulse
+codex plugin marketplace upgrade codex-dashboard
+codex plugin add codex-dashboard@codex-dashboard
 ```
 
-For the desktop app, download the [latest Release](https://github.com/xushanpei/codex-pulse/releases/latest). The repository and plugin installation ID remain `codex-pulse` for compatibility.
+For the desktop app, download the [latest Release](https://github.com/xushanpei/codex-dashboard/releases/latest). The repository, plugin ID and application filename now use Codex Dashboard.
 
 <details>
 <summary>Data and privacy</summary>
@@ -82,7 +82,7 @@ For the desktop app, download the [latest Release](https://github.com/xushanpei/
 - Reset cards are displayed read-only and never consumed automatically. API Key sessions can show local token counts but do not have a ChatGPT plan quota; see [OpenAI API usage](https://platform.openai.com/usage) for billing.
 - Local token records usually update after a model response completes. Cached input is part of input tokens; reasoning output is part of output tokens. Context remaining is an estimate from the latest request input, not Codex's exact context count.
 - The dashboard follows the active Codex Desktop chat using local window events when available and otherwise shows recent activity. A future Desktop log format change may require an update.
-- Codex Dashboard reads local Codex files and caches counts and display preferences under `~/.codex/codex-pulse`. It does not store chat bodies. The MCP tool returns account email, chat title, working directory, status, and usage to the current Codex chat; use it only where sharing these is appropriate.
+- Codex Dashboard reads local Codex files and caches counts and display preferences under `~/.codex/codex-dashboard`. It does not store chat bodies. The MCP tool returns account email, chat title, working directory, status, and usage to the current Codex chat; use it only where sharing these is appropriate.
 
 </details>
 

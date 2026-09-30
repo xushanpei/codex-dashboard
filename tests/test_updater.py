@@ -24,10 +24,10 @@ class FakeOpener:
 
 class UpdaterTests(unittest.TestCase):
     def test_release_check_requires_trusted_asset_and_newer_version(self):
-        payload = {"tag_name": "v0.2.0", "html_url": "https://github.com/xushanpei/codex-pulse/releases/tag/v0.2.0",
-                   "assets": [{"name": "CodexPulse-macOS-universal.zip", "size": 4,
+        payload = {"tag_name": "v0.2.0", "html_url": "https://github.com/xushanpei/codex-dashboard/releases/tag/v0.2.0",
+                   "assets": [{"name": "CodexDashboard-macOS-universal.zip", "size": 4,
                                "digest": "sha256:" + "a" * 64,
-                               "browser_download_url": "https://github.com/xushanpei/codex-pulse/releases/download/v0.2.0/CodexPulse-macOS-universal.zip"}]}
+                               "browser_download_url": "https://github.com/xushanpei/codex-dashboard/releases/download/v0.2.0/CodexDashboard-macOS-universal.zip"}]}
         opener = FakeOpener(json.dumps(payload).encode())
         self.assertTrue(updater.check_update("0.1.9", "darwin", opener)["available"])
         self.assertFalse(updater.check_update("0.2.0", "darwin", opener)["available"])
@@ -38,7 +38,7 @@ class UpdaterTests(unittest.TestCase):
     def test_download_checks_digest_and_archive_paths(self):
         stream = io.BytesIO()
         with zipfile.ZipFile(stream, "w") as archive:
-            archive.writestr("Codex Pulse.app/Contents/Info.plist", "ok")
+            archive.writestr("Codex Dashboard.app/Contents/Info.plist", "ok")
         data = stream.getvalue()
         release = {"asset_url": "https://github.com/example.zip", "size": len(data),
                    "digest": "sha256:" + hashlib.sha256(data).hexdigest()}
@@ -59,10 +59,10 @@ class UpdaterTests(unittest.TestCase):
 
     def test_macos_app_identity_and_version(self):
         with tempfile.TemporaryDirectory() as folder:
-            app = Path(folder) / "Codex Pulse.app"
+            app = Path(folder) / "Codex Dashboard.app"
             (app / "Contents/MacOS").mkdir(parents=True)
-            (app / "Contents/MacOS/CodexPulse").write_bytes(b"binary")
-            info = {"CFBundleIdentifier": "local.codex.pulse", "CFBundleShortVersionString": "0.2.0"}
+            (app / "Contents/MacOS/CodexDashboard").write_bytes(b"binary")
+            info = {"CFBundleIdentifier": "local.codex.dashboard", "CFBundleShortVersionString": "0.2.0"}
             (app / "Contents/Info.plist").write_bytes(plistlib.dumps(info))
             updater.validate_macos_app(app, "0.2.0")
             with self.assertRaises(updater.UpdateError):
@@ -72,16 +72,16 @@ class UpdaterTests(unittest.TestCase):
     def test_macos_install_stages_and_keeps_previous_app(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
-            app = root / "Codex Pulse.app"
+            app = root / "Codex Dashboard.app"
             (app / "Contents/MacOS").mkdir(parents=True)
-            (app / "Contents/MacOS/CodexPulse").write_bytes(b"old")
+            (app / "Contents/MacOS/CodexDashboard").write_bytes(b"old")
             (app / "Contents/Info.plist").write_bytes(plistlib.dumps({
-                "CFBundleIdentifier": "local.codex.pulse", "CFBundleShortVersionString": "0.1.2"}))
+                "CFBundleIdentifier": "local.codex.dashboard", "CFBundleShortVersionString": "0.1.2"}))
             archive = io.BytesIO()
             with zipfile.ZipFile(archive, "w") as source:
-                source.writestr("Codex Pulse.app/Contents/MacOS/CodexPulse", b"new")
-                source.writestr("Codex Pulse.app/Contents/Info.plist", plistlib.dumps({
-                    "CFBundleIdentifier": "local.codex.pulse", "CFBundleShortVersionString": "0.1.3"}))
+                source.writestr("Codex Dashboard.app/Contents/MacOS/CodexDashboard", b"new")
+                source.writestr("Codex Dashboard.app/Contents/Info.plist", plistlib.dumps({
+                    "CFBundleIdentifier": "local.codex.dashboard", "CFBundleShortVersionString": "0.1.3"}))
             real_run = subprocess.run
 
             def run(command, *args, **kwargs):
@@ -96,8 +96,8 @@ class UpdaterTests(unittest.TestCase):
                  patch.object(updater, "STATUS", root / "update-status.json"), \
                  patch.object(updater.subprocess, "run", side_effect=run):
                 updater.install_macos(app, 0, "0.1.2")
-            self.assertEqual((app / "Contents/MacOS/CodexPulse").read_bytes(), b"new")
-            self.assertEqual((root / ".Codex Pulse.0.1.2.backup.app/Contents/MacOS/CodexPulse").read_bytes(), b"old")
+            self.assertEqual((app / "Contents/MacOS/CodexDashboard").read_bytes(), b"new")
+            self.assertEqual((root / ".Codex Dashboard.0.1.2.backup.app/Contents/MacOS/CodexDashboard").read_bytes(), b"old")
             self.assertEqual(json.loads((root / "update-status.json").read_text())["state"], "complete")
 
     @unittest.skipUnless(sys.platform == "win32", "Windows process handle check")

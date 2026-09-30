@@ -939,7 +939,7 @@ private struct SettingsView: View {
                            "如果 Codex Dashboard 对你有帮助，可以自愿在 GitHub 为仓库加 Star。"))
                         .font(.system(size: 10)).foregroundStyle(theme.muted)
                     Link(t("Open repository on GitHub", "在 GitHub 打开仓库"),
-                         destination: URL(string: "https://github.com/xushanpei/codex-pulse")!)
+                         destination: URL(string: "https://github.com/xushanpei/codex-dashboard")!)
                         .font(.system(size: 11))
                 }
                 if model.settings.showAdvanced {
@@ -1000,7 +1000,7 @@ private final class PulsePanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-final class CodexPulseApp: NSObject, NSApplicationDelegate {
+final class CodexDashboardApp: NSObject, NSApplicationDelegate {
     private let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var panel: PulsePanel?
     private var globalClickMonitor: Any?
@@ -1023,7 +1023,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
         let preferred = ["/usr/local/bin/python3", "/usr/bin/python3", "/opt/homebrew/bin/python3"]
         #endif
         let fromPath = (environment["PATH"] ?? "").split(separator: ":").map { "\($0)/python3" }
-        for path in ([environment["CODEX_PULSE_PYTHON"]].compactMap { $0 } + preferred + fromPath) {
+        for path in ([environment["CODEX_DASHBOARD_PYTHON"]].compactMap { $0 } + preferred + fromPath) {
             if FileManager.default.isExecutableFile(atPath: path) { return URL(fileURLWithPath: path) }
         }
         return nil
@@ -1076,7 +1076,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
             openSettings: { [weak self] in self?.showSettings() },
             quit: { NSApplication.shared.terminate(nil) }))
         self.panel = panel
-        let isPreview = ProcessInfo.processInfo.environment["CODEX_PULSE_PREVIEW"] == "1"
+        let isPreview = ProcessInfo.processInfo.environment["CODEX_DASHBOARD_PREVIEW"] == "1"
         if isPreview {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 430, height: 690),
                                   styleMask: [.titled, .closable], backing: .buffered, defer: false)
@@ -1094,13 +1094,13 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
         }
         refreshNow()
         readUpdateStatus()
-        if isPreview && ProcessInfo.processInfo.environment["CODEX_PULSE_PREVIEW_UPDATE"] == "1" {
+        if isPreview && ProcessInfo.processInfo.environment["CODEX_DASHBOARD_PREVIEW_UPDATE"] == "1" {
             model.updateInfo = UpdateInfo(available: true, latestVersion: "0.1.5",
-                                          releaseUrl: "https://github.com/xushanpei/codex-pulse/releases")
+                                          releaseUrl: "https://github.com/xushanpei/codex-dashboard/releases")
         } else {
             checkForUpdates()
         }
-        if ProcessInfo.processInfo.environment["CODEX_PULSE_SHOW_PANEL"] == "1" {
+        if ProcessInfo.processInfo.environment["CODEX_DASHBOARD_SHOW_PANEL"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.showPanel() }
         }
         if !isPreview {
@@ -1114,7 +1114,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
 
     private func readUpdateStatus() {
         let path = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".codex/codex-pulse/update-status.json")
+            .appendingPathComponent(".codex/codex-dashboard/update-status.json")
         if let data = try? Data(contentsOf: path),
            let value = try? JSONSerialization.jsonObject(with: data) as? [String: String],
            let message = value["message"] {
@@ -1191,7 +1191,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
                 try process.run()
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 process.waitUntilExit()
-                if process.terminationStatus != 0 { throw NSError(domain: "CodexPulseUpdate", code: Int(process.terminationStatus)) }
+                if process.terminationStatus != 0 { throw NSError(domain: "CodexDashboardUpdate", code: Int(process.terminationStatus)) }
                 let decoder = JSONDecoder()
                 decoder.keyDecodingStrategy = .convertFromSnakeCase
                 update = try decoder.decode(UpdateInfo.self, from: data)
@@ -1308,7 +1308,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
     @objc private func useLightTheme() { model.settings.theme = "light" }
     @objc private func checkUpdatesFromMenu() { checkForUpdates(manual: true) }
     @objc private func openGitHub() {
-        if let url = URL(string: "https://github.com/xushanpei/codex-pulse") { NSWorkspace.shared.open(url) }
+        if let url = URL(string: "https://github.com/xushanpei/codex-dashboard") { NSWorkspace.shared.open(url) }
     }
     @objc private func quitFromMenu() { NSApplication.shared.terminate(nil) }
 
@@ -1349,7 +1349,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
         let y = max(visible.minY + margin, anchor.minY - height - margin)
         panel.setFrame(NSRect(x: x, y: y, width: width, height: height), display: true)
         panel.makeKeyAndOrderFront(nil)
-        if ProcessInfo.processInfo.environment["CODEX_PULSE_PREVIEW"] == "1" { return }
+        if ProcessInfo.processInfo.environment["CODEX_DASHBOARD_PREVIEW"] == "1" { return }
         globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             DispatchQueue.main.async { self?.hidePanel() }
         }
@@ -1396,7 +1396,7 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
                 try process.run()
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 process.waitUntilExit()
-                if process.terminationStatus != 0 { throw NSError(domain: "CodexPulse", code: Int(process.terminationStatus)) }
+                if process.terminationStatus != 0 { throw NSError(domain: "CodexDashboard", code: Int(process.terminationStatus)) }
                 let decoder = JSONDecoder()
                 decoder.keyDecodingStrategy = .convertFromSnakeCase
                 snapshot = try decoder.decode(Snapshot.self, from: data)
@@ -1429,11 +1429,11 @@ final class CodexPulseApp: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct CodexPulseMain {
+struct CodexDashboardMain {
     static func main() {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
-        let delegate = CodexPulseApp()
+        let delegate = CodexDashboardApp()
         app.delegate = delegate
         app.run()
     }

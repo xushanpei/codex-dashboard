@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "codex-pulse": {
+    "codex-dashboard": {
       "command": "python3",
       "args": ["./scripts/mcp_server.py"]
     }

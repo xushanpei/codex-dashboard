@@ -1,19 +1,20 @@
 #!/bin/sh
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-APP="$ROOT/dist/Codex Pulse.app"
+APP="$ROOT/dist/Codex Dashboard.app"
 ARCH_DIR="$ROOT/dist/architectures"
 ICONSET="$ROOT/dist/AppIcon.iconset"
 VERSION=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$ROOT/plugin.json")
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$ARCH_DIR" "$ICONSET"
-xcrun swiftc -target arm64-apple-macosx13.0 "$ROOT/menu-bar/Settings.swift" "$ROOT/menu-bar/CodexPulse.swift" -o "$ARCH_DIR/CodexPulse-arm64"
-xcrun swiftc -target x86_64-apple-macosx13.0 "$ROOT/menu-bar/Settings.swift" "$ROOT/menu-bar/CodexPulse.swift" -o "$ARCH_DIR/CodexPulse-x86_64"
-xcrun lipo -create "$ARCH_DIR/CodexPulse-arm64" "$ARCH_DIR/CodexPulse-x86_64" -output "$APP/Contents/MacOS/CodexPulse"
-xcrun lipo "$APP/Contents/MacOS/CodexPulse" -verify_arch arm64 x86_64
+xcrun swiftc -target arm64-apple-macosx13.0 "$ROOT/menu-bar/Settings.swift" "$ROOT/menu-bar/CodexDashboard.swift" -o "$ARCH_DIR/CodexDashboard-arm64"
+xcrun swiftc -target x86_64-apple-macosx13.0 "$ROOT/menu-bar/Settings.swift" "$ROOT/menu-bar/CodexDashboard.swift" -o "$ARCH_DIR/CodexDashboard-x86_64"
+xcrun lipo -create "$ARCH_DIR/CodexDashboard-arm64" "$ARCH_DIR/CodexDashboard-x86_64" -output "$APP/Contents/MacOS/CodexDashboard"
+xcrun lipo "$APP/Contents/MacOS/CodexDashboard" -verify_arch arm64 x86_64
 cp "$ROOT/scripts/collector.py" "$APP/Contents/Resources/collector.py"
 cp "$ROOT/scripts/account_status.py" "$APP/Contents/Resources/account_status.py"
 cp "$ROOT/scripts/updater.py" "$APP/Contents/Resources/updater.py"
 cp "$ROOT/scripts/preferences.py" "$APP/Contents/Resources/preferences.py"
+cp "$ROOT/scripts/paths.py" "$APP/Contents/Resources/paths.py"
 cp "$ROOT/assets/codex-mark.png" "$APP/Contents/Resources/codex-mark.png"
 for spec in '16 icon_16x16.png' '32 icon_16x16@2x.png' \
             '32 icon_32x32.png' '64 icon_32x32@2x.png' \
@@ -29,10 +30,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleIdentifier</key><string>local.codex.pulse</string>
+  <key>CFBundleIdentifier</key><string>local.codex.dashboard</string>
   <key>CFBundleName</key><string>Codex Dashboard</string>
   <key>CFBundleDisplayName</key><string>Codex Dashboard</string>
-  <key>CFBundleExecutable</key><string>CodexPulse</string>
+  <key>CFBundleExecutable</key><string>CodexDashboard</string>
   <key>CFBundleIconFile</key><string>AppIcon.icns</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>

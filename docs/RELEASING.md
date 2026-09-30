@@ -4,7 +4,7 @@
 
 ## 首次发布
 
-1. 在 GitHub 账号 `xushanpei` 下建立公开、空白仓库 `codex-pulse`，不要让 GitHub 自动生成 README、License 或 `.gitignore`。
+1. 在 GitHub 账号 `xushanpei` 下建立公开、空白仓库 `codex-dashboard`，不要让 GitHub 自动生成 README、License 或 `.gitignore`。
 2. 推送本仓库的 `main` 分支。
 3. 推送 `v0.1.0` 标签。`.github/workflows/release.yml` 会先在 macOS 和 Windows 运行单元测试，再构建通用 macOS App，生成完整源码 ZIP 并创建 GitHub Release。
 4. 检查 Actions 和 Release 页面，确认附件存在、版本与说明正确。

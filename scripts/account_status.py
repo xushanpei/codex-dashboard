@@ -12,8 +12,9 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from paths import data_directory
 
-CACHE = Path.home() / ".codex/codex-pulse/account.json"
+CACHE = data_directory() / "account.json"
 AUTH = Path.home() / ".codex/auth.json"
 TTL_SECONDS = 15
 
@@ -79,7 +80,7 @@ def _auth_version():
 
 def _codex_binary():
     candidates = [
-        os.environ.get("CODEX_PULSE_CODEX"),
+        os.environ.get("CODEX_DASHBOARD_CODEX"),
         shutil.which("codex"),
         "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
         str(Path.home() / "Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"),
@@ -98,7 +99,7 @@ def _query():
                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     requests = [
         {"method": "initialize", "id": 1, "params": {"clientInfo": {
-            "name": "codex_pulse", "title": "Codex Dashboard", "version": "0.1.0"}}},
+            "name": "codex_dashboard", "title": "Codex Dashboard", "version": "0.1.0"}}},
         {"method": "initialized", "params": {}},
         {"method": "account/read", "id": 2, "params": {"refreshToken": False}},
         {"method": "account/rateLimits/read", "id": 3},

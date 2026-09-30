@@ -18,11 +18,12 @@ from preferences import read_preferences
 import uuid
 import zipfile
 from pathlib import Path, PurePosixPath
+from paths import data_directory
 
-REPO = "xushanpei/codex-pulse"
+REPO = "xushanpei/codex-dashboard"
 RELEASE_API = f"https://api.github.com/repos/{REPO}/releases/latest"
-ASSETS = {"darwin": "CodexPulse-macOS-universal.zip", "win32": "CodexPulse-source.zip"}
-STATUS = Path.home() / ".codex/codex-pulse/update-status.json"
+ASSETS = {"darwin": "CodexDashboard-macOS-universal.zip", "win32": "CodexDashboard-source.zip"}
+STATUS = data_directory() / "update-status.json"
 MAX_ARCHIVE_BYTES = 100 * 1024 * 1024
 USER_AGENT = "Codex-Pulse-Updater"
 
@@ -158,12 +159,12 @@ def write_status(state, message):
 
 def validate_macos_app(path, version):
     plist = path / "Contents/Info.plist"
-    binary = path / "Contents/MacOS/CodexPulse"
+    binary = path / "Contents/MacOS/CodexDashboard"
     if not plist.is_file() or not binary.is_file():
-        raise UpdateError("下载包中找不到 Codex Pulse.app")
+        raise UpdateError("下载包中找不到 Codex Dashboard.app")
     with plist.open("rb") as stream:
         info = plistlib.load(stream)
-    if info.get("CFBundleIdentifier") != "local.codex.pulse":
+    if info.get("CFBundleIdentifier") != "local.codex.dashboard":
         raise UpdateError("安装包的 App 标识不正确")
     if info.get("CFBundleShortVersionString") != version:
         raise UpdateError("安装包版本与 Release 不一致")
@@ -186,60 +187,61 @@ def update_git_plugin(expected_version=None):
         if installed.returncode:
             return ui("Plugin list unavailable; plugin update skipped", "插件列表不可用，插件未自动更新")
         plugins = json.loads(installed.stdout).get("installed", [])
-        if not any(item.get("pluginId") == "codex-pulse@codex-pulse" for item in plugins):
+        if not any(item.get("pluginId") == "codex-dashboard@codex-dashboard" for item in plugins):
             return None
-        upgrade = subprocess.run([codex, "plugin", "marketplace", "upgrade", "codex-pulse", "--json"],
+        upgrade = subprocess.run([codex, "plugin", "marketplace", "upgrade", "codex-dashboard", "--json"],
                                  text=True, capture_output=True, timeout=35, env=environment)
         if upgrade.returncode:
-            return ui("App updated, but plugin update failed; run codex plugin marketplace upgrade codex-pulse",
-                      "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-pulse")
+            return ui("App updated, but plugin update failed; run codex plugin marketplace upgrade codex-dashboard",
+                      "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-dashboard")
         if expected_version:
             marketplaces = subprocess.run([codex, "plugin", "marketplace", "list", "--json"],
                                           text=True, capture_output=True, timeout=45, env=environment)
             roots = json.loads(marketplaces.stdout).get("marketplaces", []) if marketplaces.returncode == 0 else []
-            root = next((item.get("root") for item in roots if item.get("name") == "codex-pulse"), None)
+            root = next((item.get("root") for item in roots if item.get("name") == "codex-dashboard"), None)
             if not root or json.loads((Path(root) / "plugin.json").read_text(encoding="utf-8")).get("version") != expected_version:
                 return ui("App updated, but marketplace version differs from the Release; plugin update skipped",
                           "桌面程序已更新，插件市场版本与发布版不同，未自动升级插件")
-        added = subprocess.run([codex, "plugin", "add", "codex-pulse@codex-pulse", "--json"],
+        added = subprocess.run([codex, "plugin", "add", "codex-dashboard@codex-dashboard", "--json"],
                                text=True, capture_output=True, timeout=35, env=environment)
         if added.returncode or (expected_version and json.loads(added.stdout).get("version") != expected_version):
-            return ui("App updated, but plugin update failed; run codex plugin marketplace upgrade codex-pulse",
-                      "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-pulse")
+            return ui("App updated, but plugin update failed; run codex plugin marketplace upgrade codex-dashboard",
+                      "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-dashboard")
     except (OSError, ValueError, subprocess.SubprocessError):
-        return ui("App updated, but plugin update failed; run codex plugin marketplace upgrade codex-pulse",
-                  "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-pulse")
+        return ui("App updated, but plugin update failed; run codex plugin marketplace upgrade codex-dashboard",
+                  "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-dashboard")
     return ui("App and plugin updated; use the plugin in a new chat", "桌面程序和插件均已更新；插件请在新聊天使用")
 
 
 def install_macos(app_path, wait_pid, current_version):
     app_path = Path(app_path).expanduser().resolve()
-    if app_path.name != "Codex Pulse.app" or not app_path.is_dir():
-        raise UpdateError("无法识别当前 Codex Pulse.app 路径")
+    if app_path.name != "Codex Dashboard.app" or not app_path.is_dir():
+        raise UpdateError("无法识别当前 Codex Dashboard.app 路径")
     if not os.access(app_path.parent, os.W_OK):
         raise UpdateError("没有更新应用程序所在目录的写入权限，请手动安装")
     release = check_update(current_version, "darwin")
     if not release["available"]:
         raise UpdateError("当前已是最新版本")
     validate_macos_app(app_path, current_version)
-    with tempfile.TemporaryDirectory(prefix="codex-pulse-update-") as folder:
+    destination = app_path
+    with tempfile.TemporaryDirectory(prefix="codex-dashboard-update-") as folder:
         temporary = Path(folder)
         archive = temporary / "app.zip"
         download_asset(release, archive)
         extracted = temporary / "extracted"
         subprocess.run(["ditto", "-x", "-k", str(archive), str(extracted)], check=True, timeout=30)
-        candidate = extracted / "Codex Pulse.app"
+        candidate = extracted / "Codex Dashboard.app"
         validate_macos_app(candidate, release["latest_version"])
-        staged = app_path.with_name(f".Codex Pulse.update-{uuid.uuid4().hex}.app")
+        staged = app_path.with_name(f".Codex Dashboard.update-{uuid.uuid4().hex}.app")
         try:
             subprocess.run(["ditto", str(candidate), str(staged)], check=True, timeout=30)
-            backup = app_path.with_name(f".Codex Pulse.{current_version}.backup.app")
+            backup = app_path.with_name(f".Codex Dashboard.{current_version}.backup.app")
             if backup.exists():
-                backup = app_path.with_name(f".Codex Pulse.{current_version}.{uuid.uuid4().hex}.backup.app")
+                backup = app_path.with_name(f".Codex Dashboard.{current_version}.{uuid.uuid4().hex}.backup.app")
             wait_for_exit(wait_pid)
             os.replace(app_path, backup)
             try:
-                os.replace(staged, app_path)
+                os.replace(staged, destination)
             except OSError:
                 os.replace(backup, app_path)
                 raise
@@ -247,10 +249,10 @@ def install_macos(app_path, wait_pid, current_version):
             if staged.exists():
                 shutil.rmtree(staged)
     try:
-        subprocess.run(["open", str(app_path)], check=True, timeout=10)
+        subprocess.run(["open", str(destination)], check=True, timeout=10)
     except (OSError, subprocess.SubprocessError) as exc:
-        failed = app_path.with_name(f".Codex Pulse.failed-{uuid.uuid4().hex}.app")
-        os.replace(app_path, failed)
+        failed = app_path.with_name(f".Codex Dashboard.failed-{uuid.uuid4().hex}.app")
+        os.replace(destination, failed)
         os.replace(backup, app_path)
         shutil.rmtree(failed)
         subprocess.run(["open", str(app_path)], check=False, timeout=10)
@@ -266,7 +268,7 @@ def install_windows(wait_pid, current_version):
     launcher = shutil.which("py")
     if not launcher:
         raise UpdateError("未找到 Windows Python 启动器 py")
-    with tempfile.TemporaryDirectory(prefix="codex-pulse-update-") as folder:
+    with tempfile.TemporaryDirectory(prefix="codex-dashboard-update-") as folder:
         temporary = Path(folder)
         archive = temporary / "source.zip"
         download_asset(release, archive)
@@ -313,7 +315,7 @@ def main():
             if args.install_macos and args.app_path and Path(args.app_path).is_dir() and not process_running(args.wait_pid):
                 subprocess.run(["open", args.app_path], check=False, timeout=10)
             elif args.install_windows and not process_running(args.wait_pid):
-                launcher = Path.home() / "plugins/codex-pulse/scripts/start_windows.cmd"
+                launcher = Path.home() / "plugins/codex-dashboard/scripts/start_windows.cmd"
                 if launcher.is_file():
                     subprocess.Popen([os.environ.get("ComSpec", "cmd.exe"), "/c", str(launcher)],
                                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))

@@ -30,11 +30,11 @@ class WindowsSupportTests(unittest.TestCase):
             install(source, home, run_commands=False)
             data = json.loads(marketplace.read_text())
             self.assertEqual(data["interface"]["displayName"], "Mine")
-            self.assertEqual([p["name"] for p in data["plugins"]], ["another-plugin", "codex-pulse"])
-            mcp = json.loads((installed / ".mcp.json").read_text())["mcpServers"]["codex-pulse"]
+            self.assertEqual([p["name"] for p in data["plugins"]], ["another-plugin", "codex-dashboard"])
+            mcp = json.loads((installed / ".mcp.json").read_text())["mcpServers"]["codex-dashboard"]
             self.assertEqual(mcp["command"], str(installed / ".venv/Scripts/python.exe"))
             self.assertEqual(mcp["args"], [str(installed / "scripts/mcp_server.py")])
-            portable = json.loads((installed / "mcp.json").read_text())["mcpServers"]["codex-pulse"]
+            portable = json.loads((installed / "mcp.json").read_text())["mcpServers"]["codex-dashboard"]
             self.assertEqual(portable["command"], "py")
             self.assertEqual(portable["args"], ["-3", "${PLUGIN_ROOT}/scripts/mcp_server.py"])
             self.assertTrue((installed / "scripts/windows_tray.py").exists())

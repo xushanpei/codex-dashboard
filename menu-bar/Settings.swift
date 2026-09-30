@@ -33,9 +33,9 @@ struct AppSettings: Codable {
 }
 
 enum SettingsStore {
-    static let path = ProcessInfo.processInfo.environment["CODEX_PULSE_PREFERENCES"]
+    static let path = ProcessInfo.processInfo.environment["CODEX_DASHBOARD_PREFERENCES"]
         .map { URL(fileURLWithPath: $0) } ?? FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".codex/codex-pulse/preferences.json")
+        .appendingPathComponent(".codex/codex-dashboard/preferences.json")
 
     static func load() -> AppSettings {
         guard let data = try? Data(contentsOf: path) else { return AppSettings() }

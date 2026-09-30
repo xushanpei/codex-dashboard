@@ -11,11 +11,11 @@
 把下面这段话发给**本地 Codex**。它会按系统选择步骤，并在安装后检查插件和桌面程序：
 
 ```text
-请安装 Codex Dashboard（仓库名 codex-pulse）：https://github.com/xushanpei/codex-pulse
-先阅读仓库里的 skills/install-codex-pulse/SKILL.md，再按我的系统安装 Codex 插件和菜单栏／托盘程序，并验证两者都能运行。保留我其他插件和代理设置；回复中不要展示账号邮箱或完整会话内容。
+请安装 Codex Dashboard（仓库名 codex-dashboard）：https://github.com/xushanpei/codex-dashboard
+先阅读仓库里的 skills/install-codex-dashboard/SKILL.md，再按我的系统安装 Codex 插件和菜单栏／托盘程序，并验证两者都能运行。保留我其他插件和代理设置；回复中不要展示账号邮箱或完整会话内容。
 ```
 
-安装后的新聊天也可以直接使用 `$install-codex-pulse` 来检查或更新。插件自带的 skill 只会在**新聊天**中加载。
+安装后的新聊天也可以直接使用 `$install-codex-dashboard` 来检查或更新。插件自带的 skill 只会在**新聊天**中加载。
 
 ## 自己安装
 
@@ -26,17 +26,17 @@
 1. 安装 Codex 插件，在终端运行：
 
    ```sh
-   codex plugin marketplace add xushanpei/codex-pulse
-   codex plugin add codex-pulse@codex-pulse
+   codex plugin marketplace add xushanpei/codex-dashboard
+   codex plugin add codex-dashboard@codex-dashboard
    ```
 
-2. 下载 [macOS App](https://github.com/xushanpei/codex-pulse/releases/latest/download/CodexPulse-macOS-universal.zip)，解压后将 **Codex Pulse.app** 放入“应用程序”并打开。界面显示名为 **Codex Dashboard**；保留原安装包文件名以兼容自动更新。菜单栏会出现图标，点击即可查看面板。
+2. 下载 [macOS App](https://github.com/xushanpei/codex-dashboard/releases/latest/download/CodexDashboard-macOS-universal.zip)，解压后将 **Codex Dashboard.app** 放入“应用程序”并打开。菜单栏会出现图标，点击即可查看面板。
 
 App 尚未进行 Apple Developer ID 签名和公证。如果系统阻止打开，可从源码在本机编译；这需要 Xcode 工具链：
 
 ```sh
-git clone https://github.com/xushanpei/codex-pulse.git
-cd codex-pulse
+git clone https://github.com/xushanpei/codex-dashboard.git
+cd codex-dashboard
 sh scripts/install_macos_app.sh
 ```
 
@@ -44,14 +44,14 @@ sh scripts/install_macos_app.sh
 
 需要 Windows 10/11、Python 3.9+（含 Tkinter 和 `py` 命令）、Codex CLI。Windows 托盘界面仍待实机验收。
 
-1. 下载 [完整源码 ZIP](https://github.com/xushanpei/codex-pulse/releases/latest/download/CodexPulse-source.zip) 并解压。
+1. 下载 [完整源码 ZIP](https://github.com/xushanpei/codex-dashboard/releases/latest/download/CodexDashboard-source.zip) 并解压。
 2. 在解压后的目录打开 PowerShell 或命令提示符，运行：
 
    ```bat
    py -3 scripts\install_windows.py
    ```
 
-脚本会安装托盘依赖、登记本机插件并启动 Codex Dashboard。以后双击 `%USERPROFILE%\plugins\codex-pulse\scripts\start_windows.cmd` 即可启动；右键托盘图标可退出。首次安装依赖需要联网。
+脚本会安装托盘依赖、登记本机插件并启动 Codex Dashboard。以后双击 `%USERPROFILE%\plugins\codex-dashboard\scripts\start_windows.cmd` 即可启动；右键托盘图标可退出。首次安装依赖需要联网。
 
 ## 怎么用
 
@@ -62,7 +62,7 @@ sh scripts/install_macos_app.sh
 - **高级工具：**在设置中开启后，可查看本机 90 天历史、导出 CSV、选择强调色，以及查看当前会话的模型和思考档位变化线索。这些功能不以 GitHub Star 为门槛。设置页提供自愿打开 GitHub 仓库的入口。
 - **运行变化线索：**只报告可观察的模型切换和思考档位降低。手动切换设置也可能产生同样的记录，不能据此证明回答质量下降。
 - **在 Codex 聊天里查询：**安装插件后**新开一个本地聊天**，输入“显示我当前 Codex 的状态和 Token 用量”。也可直接调用 `get_token_usage`。云端聊天不能读取你电脑上的记录。
-- **验证插件：**运行 `codex plugin list --json` 和 `codex mcp list --json`，确认存在 `codex-pulse`，且 MCP 脚本路径指向本机插件缓存。
+- **验证插件：**运行 `codex plugin list --json` 和 `codex mcp list --json`，确认存在 `codex-dashboard`，且 MCP 脚本路径指向本机插件缓存。
 
 ## 更新
 
@@ -71,11 +71,11 @@ Codex Dashboard 启动时及之后约每 6 小时检查一次 GitHub Release。�
 如果自动更新因权限或网络问题失败，可以手动更新。macOS 插件：
 
 ```sh
-codex plugin marketplace upgrade codex-pulse
-codex plugin add codex-pulse@codex-pulse
+codex plugin marketplace upgrade codex-dashboard
+codex plugin add codex-dashboard@codex-dashboard
 ```
 
-菜单栏 App 从 [最新 Release](https://github.com/xushanpei/codex-pulse/releases/latest) 重新下载；Windows 重新解压最新源码 ZIP 并运行安装脚本。macOS App 仍未进行 Developer ID 签名或公证；自动更新仅信任本项目 GitHub Release 的 HTTPS 地址和摘要。
+菜单栏 App 从 [最新 Release](https://github.com/xushanpei/codex-dashboard/releases/latest) 重新下载；Windows 重新解压最新源码 ZIP 并运行安装脚本。macOS App 仍未进行 Developer ID 签名或公证；自动更新仅信任本项目 GitHub Release 的 HTTPS 地址和摘要。
 
 <details>
 <summary>数据口径与隐私</summary>
@@ -88,7 +88,7 @@ codex plugin add codex-pulse@codex-pulse
 - Token 记录通常在模型响应完成后写入，生成过程中的数字不会逐 Token 增加。缓存输入包含在输入 Token 中，推理 Token 包含在输出 Token 中。
 - “上下文剩余”按最近请求输入和模型窗口估算，并非 Codex 精确上下文计数。
 - 当前聊天优先根据 Codex Desktop 本机日志中的窗口事件识别；日志不可用时按最近活动显示。桌面日志格式变动后可能需要适配。
-- 采集器只读本机 Codex 文件和账号额度，在 `~/.codex/codex-pulse` 缓存统计数字，不保存对话正文。MCP 工具会把账号邮箱、会话标题、工作目录、状态及用量返回给当前 Codex 聊天；使用前请确认适合在该聊天中分享。
+- 采集器只读本机 Codex 文件和账号额度，在 `~/.codex/codex-dashboard` 缓存统计数字，不保存对话正文。MCP 工具会把账号邮箱、会话标题、工作目录、状态及用量返回给当前 Codex 聊天；使用前请确认适合在该聊天中分享。
 
 </details>
 

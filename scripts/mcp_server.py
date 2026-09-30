@@ -17,7 +17,7 @@ def handle(request):
         return
     if method == "initialize":
         result = {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}},
-                  "serverInfo": {"name": "codex-pulse", "version": "0.1.8"}}
+                  "serverInfo": {"name": "codex-dashboard", "version": "0.2.0"}}
     elif method == "ping":
         result = {}
     elif method == "tools/list":
@@ -47,4 +47,4 @@ for line in sys.stdin:
     try:
         handle(json.loads(line))
     except Exception as exc:
-        print(f"codex-pulse MCP error: {exc}", file=sys.stderr)
+        print(f"codex-dashboard MCP error: {exc}", file=sys.stderr)

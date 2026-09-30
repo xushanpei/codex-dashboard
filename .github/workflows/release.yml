@@ -30,14 +30,14 @@ jobs:
         run: sh scripts/build_menu_bar.sh
       - name: Package release files
         run: |
-          ditto -c -k --sequesterRsrc --keepParent 'dist/Codex Pulse.app' dist/CodexPulse-macOS-universal.zip
-          git archive --format=zip --output=dist/CodexPulse-source.zip HEAD
+          ditto -c -k --sequesterRsrc --keepParent 'dist/Codex Dashboard.app' dist/CodexDashboard-macOS-universal.zip
+          git archive --format=zip --output=dist/CodexDashboard-source.zip HEAD
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            dist/CodexPulse-macOS-universal.zip \
-            dist/CodexPulse-source.zip \
+            dist/CodexDashboard-macOS-universal.zip \
+            dist/CodexDashboard-source.zip \
             --title "Codex Dashboard $GITHUB_REF_NAME" \
             --generate-notes

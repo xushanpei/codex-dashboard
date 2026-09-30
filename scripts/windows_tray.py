@@ -16,6 +16,7 @@ from tkinter import filedialog
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
+from paths import data_directory
 from preferences import read_preferences, save_preferences
 
 BASE = Path(__file__).resolve().parents[1]
@@ -419,7 +420,7 @@ class Dashboard:
                   state="normal" if self.settings["show_advanced"] else "disabled").pack(anchor="w", pady=5)
         heading(self.t("Support the project", "支持项目"))
         tk.Button(body, text=self.t("Open repository on GitHub", "在 GitHub 打开仓库"),
-                  command=lambda: webbrowser.open("https://github.com/xushanpei/codex-pulse")).pack(anchor="w")
+                  command=lambda: webbrowser.open("https://github.com/xushanpei/codex-dashboard")).pack(anchor="w")
         if self.settings["show_advanced"]:
             heading(self.t("Execution change signals", "运行变化线索"))
             signals = (self.snapshot or {}).get("runtime_signals") or {}
@@ -492,7 +493,7 @@ class Dashboard:
         self.root.after(6 * 60 * 60 * 1000, self.periodic_update_check)
 
     def read_update_status(self):
-        path = Path.home() / ".codex/codex-pulse/update-status.json"
+        path = data_directory() / "update-status.json"
         try:
             message = json.loads(path.read_text(encoding="utf-8")).get("message")
             path.unlink()
@@ -818,13 +819,13 @@ class Dashboard:
             import pystray
 
             self.icon = pystray.Icon(
-                "codex-pulse", icon_image("idle"), "Codex Dashboard",
+                "codex-dashboard", icon_image("idle"), "Codex Dashboard",
                 menu=self.tray_menu())
             threading.Thread(target=self.icon.run, daemon=True).start()
         self.root.mainloop()
 
 
 if __name__ == "__main__":
-    if sys.platform != "win32" and os.environ.get("CODEX_PULSE_WINDOWS_PREVIEW") != "1":
-        raise SystemExit("Windows 托盘版仅在 Windows 运行；预览可设置 CODEX_PULSE_WINDOWS_PREVIEW=1")
-    Dashboard(preview=os.environ.get("CODEX_PULSE_WINDOWS_PREVIEW") == "1").run()
+    if sys.platform != "win32" and os.environ.get("CODEX_DASHBOARD_WINDOWS_PREVIEW") != "1":
+        raise SystemExit("Windows 托盘版仅在 Windows 运行；预览可设置 CODEX_DASHBOARD_WINDOWS_PREVIEW=1")
+    Dashboard(preview=os.environ.get("CODEX_DASHBOARD_WINDOWS_PREVIEW") == "1").run()

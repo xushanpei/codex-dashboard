@@ -4,8 +4,9 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from paths import data_directory
 
-PATH = Path(os.environ.get("CODEX_PULSE_PREFERENCES", str(Path.home() / ".codex/codex-pulse/preferences.json")))
+PATH = Path(os.environ.get("CODEX_DASHBOARD_PREFERENCES", str(data_directory() / "preferences.json")))
 DEFAULTS = {
     "language": "en",
     "theme": "system",

@@ -10,6 +10,7 @@ import sys
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from paths import data_directory
 from account_status import read_account
 
 ROOT = Path(os.environ.get("CODEX_SESSIONS_DIR", str(Path.home() / ".codex/sessions")))
@@ -26,7 +27,7 @@ def default_desktop_log_root(platform_name=None, local_app_data=None):
 
 
 DESKTOP_LOG_ROOT = Path(os.environ.get("CODEX_DESKTOP_LOG_DIR", str(default_desktop_log_root())))
-CACHE = Path(os.environ.get("CODEX_PULSE_CACHE", str(Path.home() / ".codex/codex-pulse/usage.sqlite3")))
+CACHE = Path(os.environ.get("CODEX_DASHBOARD_CACHE", str(data_directory() / "usage.sqlite3")))
 FIELDS = ("input_tokens", "cached_input_tokens", "cache_write_input_tokens", "output_tokens", "reasoning_output_tokens", "total_tokens")
 VIEW_EVENT = re.compile(r"thread_stream_view_activity_changed\s+active=(true|false)\s+conversationId=([0-9a-f-]{36}).*?rendererWindowFocused=(true|false).*?rendererWindowId=(\d+).*?rendererWindowVisible=(true|false)")
 ROUTE_EVENT = re.compile(r"IAB_LIFECYCLE received browser sidebar owner sync .*?originWebContentsId=(\d+) ownerRoutePath=/local/([0-9a-f-]{36})\s+windowId=(\d+)")
@@ -414,7 +415,7 @@ def snapshot(selected_id=None):
                 "history_daily_usage": daily_usage(db, today, 90),
                 "runtime_signals": runtime_signals(db, current["id"] if current else None),
                 "updated_at": now.isoformat(), "source": str(ROOT)}
-    if ROOT == Path.home() / ".codex/sessions" and os.environ.get("CODEX_PULSE_DISABLE_ACCOUNT") != "1":
+    if ROOT == Path.home() / ".codex/sessions" and os.environ.get("CODEX_DASHBOARD_DISABLE_ACCOUNT") != "1":
         result["account"] = read_account()
     else:
         result["account"] = None

@@ -1,14 +1,14 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "codex-pulse",
-  "version": "0.1.8",
+  "name": "codex-dashboard",
+  "version": "0.2.0",
   "description": "Live local Codex status, quota, and token usage for macOS and Windows.",
   "author": {
     "name": "xushanpei",
     "url": "https://github.com/xushanpei"
   },
-  "homepage": "https://github.com/xushanpei/codex-pulse",
-  "repository": "https://github.com/xushanpei/codex-pulse",
+  "homepage": "https://github.com/xushanpei/codex-dashboard",
+  "repository": "https://github.com/xushanpei/codex-dashboard",
   "license": "MIT",
   "keywords": ["codex", "tokens", "quota", "status"],
   "extensions": {

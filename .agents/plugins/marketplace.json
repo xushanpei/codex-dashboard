@@ -1,11 +1,11 @@
 {
-  "name": "codex-pulse",
+  "name": "codex-dashboard",
   "interface": {
-    "displayName": "Codex Pulse"
+    "displayName": "Codex Dashboard"
   },
   "plugins": [
     {
-      "name": "codex-pulse",
+      "name": "codex-dashboard",
       "source": {
         "source": "local",
         "path": "./"
