@@ -102,11 +102,12 @@ class UpdaterTests(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == "win32", "Windows process handle check")
     def test_windows_detects_exited_process(self):
-        process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(1)"],
+        process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"],
                                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         try:
             self.assertTrue(updater.process_running(process.pid))
         finally:
+            process.terminate()
             process.wait(timeout=5)
         self.assertFalse(updater.process_running(process.pid))
 

@@ -122,7 +122,7 @@ def process_running(pid):
         kernel.OpenProcess.restype = wintypes.HANDLE
         kernel.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
         kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
-        handle = kernel.OpenProcess(0x1000, False, pid)
+        handle = kernel.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE for WaitForSingleObject
         if not handle:
             return False
         try:
