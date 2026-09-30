@@ -272,6 +272,7 @@ private struct DashboardView: View {
     @ObservedObject var model: DashboardModel
     @State private var showMonthTrend = false
     @State private var hoveredDay: DailyPoint?
+    private let horizontalInset: CGFloat = 20
     let refresh: () -> Void
     let quit: () -> Void
 
@@ -294,42 +295,41 @@ private struct DashboardView: View {
             Theme.bg
             Circle().fill(Theme.cyan.opacity(0.14)).frame(width: 290, height: 290).blur(radius: 90).offset(x: 150, y: -260)
             Circle().fill(Theme.violet.opacity(0.15)).frame(width: 220, height: 220).blur(radius: 80).offset(x: -170, y: 160)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    header
-                    accountCard
-                    hero
-                    if let snapshot = model.snapshot {
-                        HStack {
-                            Text("本机 Token 用量")
-                                .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                            Spacer()
-                            Text("含本机所有登录账号")
-                                .font(.system(size: 10)).foregroundStyle(Theme.muted)
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        header
+                        accountCard
+                        hero
+                        if let snapshot = model.snapshot {
+                            HStack {
+                                Text("本机 Token 用量")
+                                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                                Spacer()
+                                Text("含本机所有登录账号")
+                                    .font(.system(size: 10)).foregroundStyle(Theme.muted)
+                            }
+                            .padding(.horizontal, 2)
+                            HStack(spacing: 10) {
+                                MetricCard(label: "今日", value: compact(snapshot.today.totalTokens), icon: "sun.max.fill", tint: Theme.cyan)
+                                MetricCard(label: "本周", value: compact(snapshot.thisWeek.totalTokens), icon: "calendar.badge.clock", tint: Theme.violet)
+                                MetricCard(label: "本月", value: compact(snapshot.thisMonth.totalTokens), icon: "calendar", tint: Theme.lime)
+                            }
+                            contextCard
+                            limitCard
+                            breakdownCard
+                            trendCard(showMonthTrend ? snapshot.monthDailyUsage : snapshot.dailyUsage)
+                        } else {
+                            GlassCard { Text(model.error ?? "正在读取本机 Codex 状态…").foregroundStyle(Theme.muted) }
                         }
-                        .padding(.horizontal, 2)
-                        HStack(spacing: 10) {
-                            MetricCard(label: "今日", value: compact(snapshot.today.totalTokens), icon: "sun.max.fill", tint: Theme.cyan)
-                            MetricCard(label: "本周", value: compact(snapshot.thisWeek.totalTokens), icon: "calendar.badge.clock", tint: Theme.violet)
-                            MetricCard(label: "本月", value: compact(snapshot.thisMonth.totalTokens), icon: "calendar", tint: Theme.lime)
-                        }
-                        contextCard
-                        limitCard
-                        breakdownCard
-                        trendCard(showMonthTrend ? snapshot.monthDailyUsage : snapshot.dailyUsage)
-                    } else {
-                        GlassCard { Text(model.error ?? "正在读取本机 Codex 状态…").foregroundStyle(Theme.muted) }
+                        footer
                     }
-                    footer
+                    .frame(width: max(0, geometry.size.width - horizontalInset * 2), alignment: .leading)
+                    .padding(.horizontal, horizontalInset)
+                    .padding(.vertical, 20)
                 }
-                .padding(.leading, 20)
-                .padding(.trailing, 29)
-                .padding(.vertical, 20)
+                .scrollIndicators(.hidden)
             }
-            .scrollIndicators(.hidden)
-            .frame(width: 454)
-            .frame(width: 430, alignment: .leading)
-            .clipped()
         }
         .frame(width: 430, height: 690)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
