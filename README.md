@@ -6,6 +6,14 @@ Codex Dashboard shows your current Codex account, plan quota, reset cards, chat 
 
 > An independent community project, unaffiliated with OpenAI. Codex and its logo belong to OpenAI.
 
+## Preview
+
+<p align="center">
+  <a href="assets/screenshots/dashboard-overview.png"><img src="assets/screenshots/dashboard-overview.png" width="430" alt="Codex Dashboard: account quota, current chat, context and local token usage"></a>
+</p>
+
+Chinese interface shown. English is the default; language can be changed in Settings.
+
 ## Ask Codex to install it
 
 Send this to **local Codex**:

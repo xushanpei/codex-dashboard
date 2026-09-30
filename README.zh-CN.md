@@ -6,6 +6,14 @@
 
 > 独立社区项目，与 OpenAI 无隶属关系。Codex 名称与 Logo 属于 OpenAI。
 
+## 界面预览
+
+<p align="center">
+  <a href="assets/screenshots/dashboard-overview.png"><img src="assets/screenshots/dashboard-overview.png" width="430" alt="Codex Dashboard：账号额度、当前会话、上下文与本机 Token 统计"></a>
+</p>
+
+截图展示中文界面；应用默认英文，可在设置中切换语言。
+
 ## 让 AI 帮你安装
 
 把下面这段话发给**本地 Codex**。它会按系统选择步骤，并在安装后检查插件和桌面程序：
