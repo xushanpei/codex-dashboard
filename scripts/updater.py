@@ -182,7 +182,7 @@ def update_git_plugin(expected_version=None):
         if proxy and not environment.get("HTTPS_PROXY"):
             environment["HTTPS_PROXY"] = proxy
         installed = subprocess.run([codex, "plugin", "list", "--json"], text=True,
-                                   capture_output=True, timeout=12, env=environment)
+                                   capture_output=True, timeout=45, env=environment)
         if installed.returncode:
             return ui("Plugin list unavailable; plugin update skipped", "插件列表不可用，插件未自动更新")
         plugins = json.loads(installed.stdout).get("installed", [])
@@ -195,7 +195,7 @@ def update_git_plugin(expected_version=None):
                       "桌面程序已更新，插件更新失败；请手动运行 codex plugin marketplace upgrade codex-pulse")
         if expected_version:
             marketplaces = subprocess.run([codex, "plugin", "marketplace", "list", "--json"],
-                                          text=True, capture_output=True, timeout=12, env=environment)
+                                          text=True, capture_output=True, timeout=45, env=environment)
             roots = json.loads(marketplaces.stdout).get("marketplaces", []) if marketplaces.returncode == 0 else []
             root = next((item.get("root") for item in roots if item.get("name") == "codex-pulse"), None)
             if not root or json.loads((Path(root) / "plugin.json").read_text(encoding="utf-8")).get("version") != expected_version:
