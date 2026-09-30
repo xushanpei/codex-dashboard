@@ -401,77 +401,87 @@ class Dashboard:
         self.label(404, 26, "×", 17, MUTED, anchor="ne")
         self.card(62, 129)
         email = account.get("email") or ("API Key 接入" if account.get("auth_type") == "apiKey" else "Codex 账号信息加载中")
+        identity = account.get("display_name") or email
         self.rounded(31, 76, 72, 116, 20, "#3d3562", "#3d3562")
-        self.label(51, 96, email[:1].upper(), 18, VIOLET, "bold", "center")
-        self.label(84, 76, email if len(email) < 32 else email[:28] + "…", 12, WHITE, "bold")
-        self.label(84, 99, "ChatGPT 登录" if account.get("auth_type") == "chatgpt" else ("API 用量计费" if account.get("auth_type") == "apiKey" else "Codex 账号"), 10, MUTED)
+        self.label(51, 96, identity[:1].upper(), 18, VIOLET, "bold", "center")
+        self.label(84, 76, identity if len(identity) < 32 else identity[:28] + "…", 12, WHITE, "bold")
+        subtitle = (email if account.get("display_name") else
+                    ("ChatGPT 登录" if account.get("auth_type") == "chatgpt" else
+                     ("API 用量计费" if account.get("auth_type") == "apiKey" else "Codex 账号")))
+        self.label(84, 99, subtitle if len(subtitle) < 42 else subtitle[:39] + "…", 10, MUTED)
         plan = (account.get("plan_type") or ("API" if account.get("auth_type") == "apiKey" else "—")).upper()
         self.label(398, 100, plan, 10, CYAN, "bold", "e")
 
-        # Current chat
-        self.card(141, 275)
-        self.label(31, 153, "当前查看的会话" if data.get("selection_mode") == "desktop_view" else "最近会话", 10, CYAN, "bold")
-        symbol, model_color = model_visual(current.get("model"))
-        self.label(31, 177, symbol, 24, model_color, "bold")
-        model = (current.get("model") or "等待会话").upper()
-        self.label(66, 181, model[:24], 19, WHITE, "bold")
-        self.label(31, 210, f"思考：{EFFORT.get(current.get('effort'), '未知')}  ·  {(current.get('provider') or '—').upper()}", 10, MUTED)
-        self.label(397, 160, status, 10, status_color, "bold", "ne")
-        title = current.get("title") or ""
-        self.label(31, 233, title[:42] if title else (current.get("cwd") or "暂无工作目录")[-47:], 11, WHITE)
-        self.label(31, 254, f"会话累计 {compact(usage.get('total_tokens'))} tokens", 9, MUTED)
-        self.label(399, 254, "按最近活动显示" if data.get("selection_mode") == "latest_activity" else "", 9, MUTED, anchor="ne")
-
-        # Daily metrics
-        self.label(20, 286, "本机 Token 用量", 11, WHITE, "bold")
-        self.label(409, 287, "含本机所有登录账号", 9, MUTED, anchor="ne")
-        for x, heading, key, color in ((18, "今日", "today", CYAN), (153, "本周", "this_week", VIOLET),
-                                        (288, "本月", "this_month", LIME)):
-            self.rounded(x, 307, x + 124, 366, 13)
-            self.label(x + 12, 317, heading, 10, MUTED)
-            self.label(x + 12, 337, compact((data.get(key) or {}).get("total_tokens")), 18, color, "bold")
-
-        # Context and quota
-        self.card(377, 446)
-        window = current.get("context_window") or 0
-        input_tokens = current.get("last_input_tokens") or 0
-        context = max(0, min(1, 1 - input_tokens / window)) if window else None
-        self.label(31, 389, "上下文剩余", 11, WHITE, "bold")
-        self.label(398, 387, f"约 {context * 100:.0f}%" if context is not None else "暂无数据", 16, CYAN, "bold", "ne")
-        self.meter(31, 414, 399, context or 0, CYAN)
-        self.label(31, 428, f"最近请求输入 {compact(input_tokens)}", 9, MUTED)
-        self.label(399, 428, f"窗口 {compact(window)}", 9, MUTED, anchor="ne")
-
-        self.card(457, 534)
+        # Account quota is the first item after identity.
+        self.card(141, 238)
         windows = quota_windows(account)
         first = windows[0] if windows else None
         remaining = first[1] if first else None
-        self.label(31, 469, first[0] if first else ("API Key 接入" if account.get("auth_type") == "apiKey" else "套餐额度"), 11, WHITE, "bold")
-        self.label(398, 468, f"{remaining:.0f}%" if remaining is not None else "—", 17, VIOLET, "bold", "ne")
-        self.meter(31, 496, 399, (remaining or 0) / 100, VIOLET)
-        self.label(31, 511, f"重置 {local_time(first[2])}" if first else ("按 API 用量计费" if account.get("auth_type") == "apiKey" else "账号额度暂不可用"), 9, MUTED)
+        self.label(31, 153, "套餐额度" if account.get("auth_type") != "apiKey" else "API Key 接入", 11, WHITE, "bold")
         count = (account.get("rate_limit_reset_credits") or {}).get("availableCount")
-        self.label(399, 511, f"重置卡 {count} 张 · 查看全部 ›" if count is not None else "查看完整额度 ›", 9, CYAN, anchor="ne")
+        if count is not None:
+            self.rounded(302, 150, 399, 175, 12, "#243d3a", "#243d3a")
+            self.label(350, 162, f"重置卡 {count}", 9, LIME, "bold", "center")
+        self.label(31, 181, first[0] if first else ("按 API 用量计费" if account.get("auth_type") == "apiKey" else "当前未返回额度窗口"), 10, MUTED)
+        self.label(398, 179, f"剩余 {remaining:.0f}%" if remaining is not None else "—", 17, VIOLET, "bold", "ne")
+        self.meter(31, 208, 399, (remaining or 0) / 100, VIOLET)
+        self.label(31, 220, f"重置 {local_time(first[2])}" if first else "本机 Token 统计仍可使用", 9, MUTED)
+        self.label(399, 220, "查看完整额度 ›", 9, CYAN, anchor="ne")
+
+        # Current chat
+        self.card(250, 380)
+        self.label(31, 262, "当前会话 · 仅此聊天" if data.get("selection_mode") == "desktop_view" else "最近会话 · 按最近活动", 10, CYAN, "bold")
+        symbol, model_color = model_visual(current.get("model"))
+        self.label(31, 286, symbol, 24, model_color, "bold")
+        model = (current.get("model") or "等待会话").upper()
+        self.label(66, 290, model[:24], 19, WHITE, "bold")
+        self.label(31, 319, f"思考：{EFFORT.get(current.get('effort'), '未知')}  ·  {(current.get('provider') or '—').upper()}", 10, MUTED)
+        self.label(397, 269, status, 10, status_color, "bold", "ne")
+        title = current.get("title") or ""
+        self.label(31, 342, title[:42] if title else (current.get("cwd") or "暂无工作目录")[-47:], 11, WHITE)
+        self.label(31, 362, f"本会话累计 {compact(usage.get('total_tokens'))} tokens", 9, MUTED)
+        self.label(399, 362, "按最近活动显示" if data.get("selection_mode") == "latest_activity" else "", 9, MUTED, anchor="ne")
+
+        # Context before lower-priority local usage.
+        self.card(392, 457)
+        window = current.get("context_window") or 0
+        input_tokens = current.get("last_input_tokens") or 0
+        context = max(0, min(1, 1 - input_tokens / window)) if window else None
+        self.label(31, 404, "本会话上下文剩余", 11, WHITE, "bold")
+        self.label(398, 402, f"约 {context * 100:.0f}%" if context is not None else "暂无数据", 16, CYAN, "bold", "ne")
+        self.meter(31, 430, 399, context or 0, CYAN)
+        self.label(31, 443, f"最近请求输入 {compact(input_tokens)}", 9, MUTED)
+        self.label(399, 443, f"窗口 {compact(window)}", 9, MUTED, anchor="ne")
+
+        # Local token usage
+        self.label(20, 468, "本机统计", 11, WHITE, "bold")
+        self.rounded(318, 464, 412, 484, 10, "#2b2448", "#2b2448")
+        self.label(365, 474, "所有登录账号", 9, VIOLET, "bold", "center")
+        for x, heading, key, color in ((18, "今日", "today", CYAN), (153, "本周", "this_week", VIOLET),
+                                        (288, "本月", "this_month", LIME)):
+            self.rounded(x, 489, x + 124, 550, 13)
+            self.label(x + 12, 499, heading, 10, MUTED)
+            self.label(x + 12, 520, compact((data.get(key) or {}).get("total_tokens")), 18, color, "bold")
 
         # Trend with hover and toggle
-        self.card(546, 654)
-        self.label(31, 557, "本机 Token 趋势", 11, WHITE, "bold")
-        self.label(331, 557, "7 天", 10, MUTED if self.trend_month else CYAN, "bold")
-        self.label(397, 557, "本月", 10, CYAN if self.trend_month else MUTED, "bold", "ne")
+        self.card(560, 654)
+        self.label(31, 570, "本机每日趋势", 11, WHITE, "bold")
+        self.label(331, 570, "7 天", 10, MUTED if self.trend_month else CYAN, "bold")
+        self.label(397, 570, "本月", 10, CYAN if self.trend_month else MUTED, "bold", "ne")
         points = data.get("month_daily_usage" if self.trend_month else "daily_usage") or []
         hovered = next((p for p in points if p.get("date") == self.hover_date), None)
         hint = (f"{hovered['date']}   {int(hovered.get('total_tokens') or 0):,} tokens" if hovered
                 else "悬停柱形查看每日用量")
-        self.label(31, 578, hint, 9, CYAN if hovered else MUTED)
+        self.label(31, 589, hint, 9, CYAN if hovered else MUTED)
         if points:
             maximum = max(1, *(int(point.get("total_tokens") or 0) for point in points))
             slot = 368 / len(points)
             for index, point in enumerate(points):
                 x = 31 + slot * index
                 value = int(point.get("total_tokens") or 0)
-                height = max(4, 47 * value / maximum)
+                height = max(4, 35 * value / maximum)
                 color = CYAN if point.get("date") == self.hover_date else VIOLET
-                self.rounded(x + 1, 636 - height, x + max(3, slot - 2), 636, 3, color, color)
+                self.rounded(x + 1, 637 - height, x + max(3, slot - 2), 637, 3, color, color)
                 self.chart_hits.append((x, x + slot, point["date"]))
                 if len(points) <= 7:
                     self.label(x + slot / 2, 640, point["date"][-2:], 8, MUTED, anchor="n")
@@ -480,7 +490,7 @@ class Dashboard:
 
     def on_motion(self, event):
         date = next((date for left, right, date in self.chart_hits
-                     if left <= event.x <= right and 589 <= event.y <= 649), None)
+                     if left <= event.x <= right and 599 <= event.y <= 649), None)
         if date != self.hover_date:
             self.hover_date = date
             self.render()
@@ -490,9 +500,9 @@ class Dashboard:
             self.install_update()
         elif event.y < 54 and event.x > 370:
             self.hide()
-        elif 457 <= event.y <= 534:
+        elif 141 <= event.y <= 238:
             self.show_quota_details()
-        elif 550 <= event.y <= 578 and event.x >= 300:
+        elif 560 <= event.y <= 587 and event.x >= 300:
             self.trend_month = event.x >= 359
             self.hover_date = None
             self.render()
@@ -500,13 +510,11 @@ class Dashboard:
             self.on_motion(event)
 
     def show_quota_details(self):
-        if self.root.state() == "withdrawn":
-            self.show()
         detail = tk.Toplevel(self.root)
         detail.title("Codex Pulse · 完整额度")
         detail.configure(bg=BG)
-        detail.geometry(f"430x420+{self.root.winfo_x()}+{max(0, self.root.winfo_y() - 430)}")
-        detail.transient(self.root)
+        left, top, right, bottom = self.work_area()
+        detail.geometry(f"430x420+{max(left, right - 444)}+{max(top, bottom - 432)}")
         tk.Label(detail, text="完整额度与重置卡", bg=BG, fg=WHITE,
                  font=("Segoe UI", 16, "bold")).pack(anchor="w", padx=20, pady=(18, 8))
         frame = tk.Frame(detail, bg=BG)

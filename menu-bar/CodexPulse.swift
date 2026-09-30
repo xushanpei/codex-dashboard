@@ -63,6 +63,7 @@ private struct ResetCredits: Decodable {
 
 private struct Account: Decodable {
     let email: String?
+    let displayName: String?
     let planType: String?
     let authType: String?
     let rateLimits: AccountLimits?
@@ -339,6 +340,7 @@ private struct MetricCard: View {
 private struct DashboardView: View {
     @ObservedObject var model: DashboardModel
     @State private var showMonthTrend = false
+    @State private var showResetDetails = false
     @State private var hoveredDay: DailyPoint?
     private let horizontalInset: CGFloat = 20
     let refresh: () -> Void
@@ -367,25 +369,20 @@ private struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         header
                         if let update = model.updateInfo, update.available { updateCard(update) }
-                        accountCard
+                        accountOverview
+                        sectionHeader(model.snapshot?.selectionMode == "desktop_view" ? "当前会话" : "最近会话",
+                                      detail: model.snapshot?.selectionMode == "desktop_view" ? "仅当前聊天" : "按最近活动",
+                                      icon: "bubble.left.fill", tint: Theme.cyan)
                         hero
+                        contextCard
+                        breakdownCard
                         if let snapshot = model.snapshot {
-                            HStack {
-                                Text("本机 Token 用量")
-                                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                                Spacer()
-                                Text("含本机所有登录账号")
-                                    .font(.system(size: 10)).foregroundStyle(Theme.muted)
-                            }
-                            .padding(.horizontal, 2)
+                            sectionHeader("本机统计", detail: "所有登录账号", icon: "desktopcomputer", tint: Theme.violet)
                             HStack(spacing: 10) {
                                 MetricCard(label: "今日", value: compact(snapshot.today.totalTokens), icon: "sun.max.fill", tint: Theme.cyan)
                                 MetricCard(label: "本周", value: compact(snapshot.thisWeek.totalTokens), icon: "calendar.badge.clock", tint: Theme.violet)
                                 MetricCard(label: "本月", value: compact(snapshot.thisMonth.totalTokens), icon: "calendar", tint: Theme.lime)
                             }
-                            contextCard
-                            limitCard
-                            breakdownCard
                             trendCard(showMonthTrend ? snapshot.monthDailyUsage : snapshot.dailyUsage)
                         } else {
                             GlassCard { Text(model.error ?? "正在读取本机 Codex 状态…").foregroundStyle(Theme.muted) }
@@ -416,6 +413,21 @@ private struct DashboardView: View {
         }
     }
 
+    private func sectionHeader(_ title: String, detail: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: icon).foregroundStyle(tint)
+            Text(title).font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+            Spacer()
+            Text(detail)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(tint)
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(tint.opacity(0.12), in: Capsule())
+        }
+        .padding(.horizontal, 2)
+        .padding(.top, 4)
+    }
+
     private func updateCard(_ update: UpdateInfo) -> some View {
         GlassCard {
             HStack(spacing: 10) {
@@ -439,12 +451,16 @@ private struct DashboardView: View {
         }
     }
 
-    private var accountCard: some View {
+    private var accountOverview: some View {
         let account = model.snapshot?.account
-        let identity = account?.email ?? (account?.authType == "apiKey" ? "API Key 接入" : "Codex 账号信息加载中")
-        let subtitle = account?.authType == "chatgpt" ? "ChatGPT 登录" :
+        let windows = quotaWindows(account)
+        let resetCredits = account?.stale == true ? nil : account?.rateLimitResetCredits
+        let creditInfo = account?.rateLimits?.credits ?? account?.rateLimitsByLimitId?.values.compactMap { $0.credits }.first
+        let identity = account?.displayName ?? account?.email ?? (account?.authType == "apiKey" ? "API Key 接入" : "Codex 账号信息加载中")
+        let subtitle = account?.displayName != nil ? (account?.email ?? "ChatGPT 登录") :
+            (account?.authType == "chatgpt" ? "ChatGPT 登录" :
             (account?.authType == "apiKey" ? "按 API 用量计费" :
-             (account?.authType == "amazonBedrock" ? "Amazon Bedrock" : "Codex 账号"))
+             (account?.authType == "amazonBedrock" ? "Amazon Bedrock" : "Codex 账号")))
         let badge = account?.authType == "apiKey" ? "API" : (account?.planType ?? "—").uppercased()
         return GlassCard {
             HStack(spacing: 12) {
@@ -467,6 +483,53 @@ private struct DashboardView: View {
                     .padding(.horizontal, 9).padding(.vertical, 5)
                     .background(Theme.cyan.opacity(0.12), in: Capsule())
             }
+            Rectangle().fill(Theme.border).frame(height: 1).padding(.vertical, 6)
+            if account?.authType == "apiKey" {
+                Label("按 OpenAI API 用量计费", systemImage: "key.fill")
+                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                Text("ChatGPT 套餐额度不适用于此账号，本机 Token 统计仍可使用。")
+                    .font(.system(size: 10)).foregroundStyle(Theme.muted)
+                Link("查看 API 用量", destination: URL(string: "https://platform.openai.com/usage")!)
+                    .font(.system(size: 10)).foregroundStyle(Theme.cyan)
+            } else if account?.authType == "amazonBedrock" {
+                Text("当前登录方式不提供 ChatGPT 套餐额度")
+                    .font(.system(size: 11)).foregroundStyle(Theme.muted)
+            } else {
+                HStack {
+                    Label("套餐额度", systemImage: "gauge.with.dots.needle.67percent")
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                    Spacer()
+                    if let count = resetCredits?.availableCount {
+                        Button { showResetDetails.toggle() } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "arrow.counterclockwise")
+                                Text("重置卡 \(count)")
+                                Image(systemName: showResetDetails ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 8, weight: .bold))
+                            }
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Theme.lime)
+                            .padding(.horizontal, 9).padding(.vertical, 5)
+                            .background(Theme.lime.opacity(0.12), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .help("查看重置卡有效期")
+                    }
+                }
+                if windows.isEmpty {
+                    Text("当前账号未返回额度窗口，等待刷新")
+                        .font(.system(size: 10)).foregroundStyle(Theme.muted)
+                } else {
+                    ForEach(windows) { window in quotaRow(window) }
+                }
+                if showResetDetails, let resetCredits {
+                    resetDetails(resetCredits)
+                }
+                if let creditInfo, creditInfo.hasCredits == true {
+                    Text("工作区积分 · \(creditInfo.unlimited == true ? "无限制" : (creditInfo.balance ?? "待更新"))")
+                        .font(.system(size: 10)).foregroundStyle(Theme.muted)
+                }
+            }
         }
     }
 
@@ -475,9 +538,6 @@ private struct DashboardView: View {
         return GlassCard {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(model.snapshot?.selectionMode == "desktop_view" ? "当前查看的会话" : "最近会话")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .tracking(2).foregroundStyle(Theme.cyan)
                     HStack(spacing: 9) {
                         Image(systemName: visual.symbol).foregroundStyle(visual.color)
                             .font(.system(size: 24))
@@ -507,7 +567,7 @@ private struct DashboardView: View {
             }
             .font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.muted)
             HStack {
-                Text("会话累计 \(compact(current?.usage.totalTokens ?? 0)) tokens")
+                Text("本会话累计 \(compact(current?.usage.totalTokens ?? 0)) tokens")
                 Spacer()
                 Text("更新于 \(clock(current?.updatedAt))")
             }
@@ -546,7 +606,7 @@ private struct DashboardView: View {
         let remaining = window > 0 ? max(0, 1 - Double(input) / Double(window)) : 0
         return GlassCard {
             HStack {
-                Label("上下文剩余", systemImage: "circle.hexagongrid.fill")
+                Label("本会话上下文剩余", systemImage: "circle.hexagongrid.fill")
                     .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
                 Spacer()
                 Text(window > 0 ? "约 \(Int(remaining * 100))%" : "暂无数据")
@@ -564,97 +624,39 @@ private struct DashboardView: View {
         }
     }
 
-    private var limitCard: some View {
-        let account = model.snapshot?.account
-        let windows = quotaWindows(account)
-        let creditInfo = account?.rateLimits?.credits ?? account?.rateLimitsByLimitId?.values.compactMap { $0.credits }.first
-        return VStack(spacing: 12) {
-            if account?.authType == "apiKey" {
-                GlassCard {
-                    Label("API Key 接入", systemImage: "key.fill")
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                    Text("按 OpenAI API 用量计费；ChatGPT 套餐剩余百分比不适用于此账号。本机 Token 统计仍可使用。")
-                        .font(.system(size: 10)).foregroundStyle(Theme.muted)
-                    Link("查看 API 用量", destination: URL(string: "https://platform.openai.com/usage")!)
-                        .font(.system(size: 10)).foregroundStyle(Theme.cyan)
-                }
-            } else if account?.authType == "amazonBedrock" {
-                GlassCard {
-                    Label("Amazon Bedrock 接入", systemImage: "cloud.fill")
-                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                    Text("当前登录方式不提供 ChatGPT 套餐额度。本机 Token 统计仍可使用。")
-                        .font(.system(size: 10)).foregroundStyle(Theme.muted)
-                }
-            } else {
-                if windows.isEmpty {
-                    GlassCard {
-                        Label("套餐额度", systemImage: "gauge.with.dots.needle.67percent")
-                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                        Text("当前账号未返回额度窗口，等待刷新")
-                            .font(.system(size: 10)).foregroundStyle(Theme.muted)
-                    }
-                } else {
-                    ForEach(windows) { window in quotaCard(window) }
-                }
-                if let creditInfo, creditInfo.hasCredits == true {
-                    GlassCard {
-                        Label("工作区积分", systemImage: "circle.grid.cross.fill")
-                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                        Text(creditInfo.unlimited == true ? "无限制" : "余额 \(creditInfo.balance ?? "待更新")")
-                            .font(.system(size: 11)).foregroundStyle(Theme.muted)
-                    }
-                }
-                resetCreditsCard(account?.stale == true ? nil : account?.rateLimitResetCredits)
-            }
-        }
-    }
-
-    private func quotaCard(_ window: QuotaWindow) -> some View {
+    private func quotaRow(_ window: QuotaWindow) -> some View {
         let tint = window.durationMinutes == 10_080 ? Theme.violet : Theme.cyan
-        return GlassCard {
+        return VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Label(window.title, systemImage: "gauge.with.dots.needle.67percent")
-                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+                Text(window.title)
+                    .font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.muted)
                 Spacer()
                 Text(window.remaining.map { String(format: "剩余 %.0f%%", $0) } ?? "余量未提供")
-                    .font(.system(size: 18, weight: .bold, design: .rounded)).foregroundStyle(tint)
+                    .font(.system(size: 16, weight: .bold, design: .rounded)).foregroundStyle(tint)
             }
-            MeterBar(fraction: (window.remaining ?? 0) / 100, tint: tint).padding(.vertical, 8)
-            HStack {
-                Text("ChatGPT 套餐窗口")
-                Spacer()
-                Text("重置 \(resetTime(window.resetsAt))")
-            }
-            .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
+            MeterBar(fraction: (window.remaining ?? 0) / 100, tint: tint)
+            Text("重置 \(resetTime(window.resetsAt))")
+                .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
         }
+        .padding(.top, 2)
     }
 
-    private func resetCreditsCard(_ credits: ResetCredits?) -> some View {
-        GlassCard {
-            HStack {
-                Label("额度重置卡", systemImage: "arrow.counterclockwise.circle.fill")
-                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
-                Spacer()
-                Text(credits?.availableCount.map { "可用 \($0) 张" } ?? "数量未提供")
-                    .font(.system(size: 16, weight: .bold)).foregroundStyle(Theme.lime)
-            }
-            if let credits {
-                if let details = credits.credits, !details.isEmpty {
-                    ForEach(details.indices, id: \.self) { index in
-                        HStack {
-                            Text(details[index].title == "Full reset" ? "完整额度重置" : (details[index].title ?? "重置卡 \(index + 1)"))
-                            Spacer()
-                            Text(details[index].expiresAt.map { "有效期 \(resetTime($0))" } ?? "有效期未提供")
-                        }
-                        .font(.system(size: 10)).foregroundStyle(Theme.muted)
-                    }
-                } else {
-                    Text(credits.availableCount == 0 ? "当前没有可用重置卡" : "服务只返回数量，未返回详情")
-                        .font(.system(size: 10)).foregroundStyle(Theme.muted)
-                }
-            } else {
-                Text("当前账号未返回重置卡信息")
+    private func resetDetails(_ credits: ResetCredits) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Rectangle().fill(Theme.border).frame(height: 1).padding(.vertical, 3)
+            let details = (credits.credits ?? []).filter { $0.status == "available" }
+            if details.isEmpty {
+                Text(credits.availableCount == 0 ? "当前没有可用重置卡" : "服务只返回数量，未返回详情")
                     .font(.system(size: 10)).foregroundStyle(Theme.muted)
+            } else {
+                ForEach(details.indices, id: \.self) { index in
+                    HStack {
+                        Text(details[index].title == "Full reset" ? "完整额度重置" : (details[index].title ?? "重置卡 \(index + 1)"))
+                        Spacer()
+                        Text(details[index].expiresAt.map { "有效期 \(resetTime($0))" } ?? "有效期未提供")
+                    }
+                    .font(.system(size: 10)).foregroundStyle(Theme.muted)
+                }
             }
             Text("只读展示，不会自动消耗重置卡")
                 .font(.system(size: 10)).foregroundStyle(Theme.muted.opacity(0.7))
@@ -667,7 +669,7 @@ private struct DashboardView: View {
         let output = usage?.outputTokens ?? 0
         let cached = usage?.cachedInputTokens ?? 0
         return GlassCard {
-            Text("会话用量构成").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
+            Text("本会话 Token 构成").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white)
             HStack {
                 breakdown("输入", compact(input), Theme.cyan)
                 breakdown("缓存输入", compact(cached), Theme.violet)

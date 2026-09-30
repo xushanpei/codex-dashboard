@@ -1,6 +1,8 @@
 """Read account identity and limits through the documented Codex app-server API."""
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import os
 import queue
@@ -34,8 +36,10 @@ def _account_payload(account_result, limit_result):
         legacy, buckets, reset_credits = None, {}, None
     bucket_plan = next((item.get("planType") for item in buckets.values()
                         if isinstance(item, dict) and item.get("planType")), None)
+    display_name = _verified_account_name(account, account_result.get("workspaceRouting") or {})
     return {
         "email": account.get("email"),
+        "display_name": display_name,
         "plan_type": account.get("planType") or (legacy or {}).get("planType") or bucket_plan,
         "auth_type": account.get("type"),
         "rate_limits": legacy,
@@ -44,6 +48,26 @@ def _account_payload(account_result, limit_result):
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "stale": False,
     }
+
+
+def _verified_account_name(account, workspace_routing):
+    """Use the current local ID token only when it matches the app-server account."""
+    if account.get("type") != "chatgpt" or not account.get("email"):
+        return None
+    try:
+        token = (json.loads(AUTH.read_text()).get("tokens") or {}).get("id_token") or ""
+        payload = token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    except (OSError, ValueError, IndexError, TypeError, binascii.Error):
+        return None
+    if (claims.get("email") or "").casefold() != account["email"].casefold():
+        return None
+    routed_id = workspace_routing.get("chatgptAccountId")
+    token_id = (claims.get("https://api.openai.com/auth") or {}).get("chatgpt_account_id")
+    if routed_id and token_id != routed_id:
+        return None
+    name = claims.get("name")
+    return name.strip()[:100] if isinstance(name, str) and name.strip() else None
 
 
 def _auth_version():
@@ -128,7 +152,8 @@ def read_account():
         cache_stat = CACHE.stat()
         auth_changed_at = _auth_version()
         cache_matches_login = cache_stat.st_mtime_ns >= auth_changed_at
-        if cache_matches_login and time.time() - cache_stat.st_mtime < TTL_SECONDS:
+        has_name_field = cached.get("auth_type") != "chatgpt" or "display_name" in cached
+        if cache_matches_login and has_name_field and time.time() - cache_stat.st_mtime < TTL_SECONDS:
             return cached
     except (OSError, ValueError):
         pass

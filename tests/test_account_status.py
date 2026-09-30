@@ -1,5 +1,6 @@
 import json
 import io
+import base64
 import os
 import sys
 import tempfile
@@ -13,6 +14,39 @@ import account_status
 
 
 class AccountStatusTests(unittest.TestCase):
+    def test_display_name_requires_matching_email_and_account(self):
+        claims = {"email": "current@example.test", "name": "  星河  ",
+                  "https://api.openai.com/auth": {"chatgpt_account_id": "workspace-current"}}
+        payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+        with tempfile.TemporaryDirectory() as temp:
+            old_auth = account_status.AUTH
+            try:
+                account_status.AUTH = Path(temp) / "auth.json"
+                account_status.AUTH.write_text(json.dumps({"tokens": {"id_token": f"header.{payload}.signature"}}))
+                account = {"type": "chatgpt", "email": "current@example.test"}
+                routing = {"chatgptAccountId": "workspace-current"}
+                self.assertEqual(account_status._verified_account_name(account, routing), "星河")
+                self.assertIsNone(account_status._verified_account_name(account, {"chatgptAccountId": "other"}))
+                self.assertIsNone(account_status._verified_account_name({**account, "email": "other@example.test"}, routing))
+                self.assertIsNone(account_status._verified_account_name({**account, "type": "apiKey"}, routing))
+            finally:
+                account_status.AUTH = old_auth
+
+    def test_old_cache_without_name_is_refreshed_after_upgrade(self):
+        with tempfile.TemporaryDirectory() as temp:
+            old_cache, old_auth = account_status.CACHE, account_status.AUTH
+            try:
+                account_status.CACHE = Path(temp) / "account.json"
+                account_status.AUTH = Path(temp) / "auth.json"
+                account_status.AUTH.write_text("auth")
+                account_status.CACHE.write_text(json.dumps({"auth_type": "chatgpt", "email": "old@example.test"}))
+                fresh = {"auth_type": "chatgpt", "email": "new@example.test", "display_name": "New"}
+                with patch.object(account_status, "_query", return_value=fresh) as query:
+                    self.assertEqual(account_status.read_account()["display_name"], "New")
+                    query.assert_called_once()
+            finally:
+                account_status.CACHE, account_status.AUTH = old_cache, old_auth
+
     def test_full_chatgpt_limits_and_reset_credits_are_kept(self):
         result = account_status._account_payload(
             {"account": {"type": "chatgpt", "planType": "team"}},
